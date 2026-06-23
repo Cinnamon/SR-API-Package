@@ -1,708 +1,860 @@
 openapi: 3.0.0
 info:
-  title: EasyRAG production API
-  version: 3.3.0
+  title: Super RAG API
+  description: |
+
+    # API Specification
+
+    ## Status Codes
+
+    APIs return status codes based on the resChatult. Below are the status codes and their meanings.
+
+    ### Response Codes for Successful Execution
+
+    If the process finishes without any issues, the response will have one of the following status codes:
+
+    | HTTP Status Code | Status Name | Description |
+    | --- | --- | --- |
+    | 200 | OK | The request was successful. |
+    | 201 | Created | The request was successful, and a new resource was created. |
+    | 204 | No Content | The request was successful, but there is no content to return. |
+
+    ### Response Codes for Client Errors
+
+    The following table lists the response codes for errors caused by client-side issues, such as invalid request data.
+
+    | HTTP Status Code | Status Name | Description |
+    | --- | --- | --- |
+    | 400 | Bad Request | The request is invalid or malformed. |
+    | 403 | Forbidden | The request is authenticated but lacks the necessary permissions. |
+    | 404 | Not Found | The specified resource could not be found. |
+    | 405 | Method Not Allowed | The request method (GET, POST, PUT, PATCH, DELETE) is not supported for this endpoint. |
+    | 409 | Conflict | The specified resource already exists. |
+    | 422 | Unprocessable Entity | The request is well-formed but contains invalid data. |
+
+    ### Response Codes for Server Errors
+
+    The following table lists the response codes for errors caused by server-side issues.
+
+    | HTTP Status Code | Status Name | Description |
+    | --- | --- | --- |
+    | 500 | Internal Server Error | The server encountered an unexpected condition that prevented it from fulfilling the request. |
+
+    ## SR 3.4 (this spec contains only 3.4 endpoints)
+
+    - **FR1** Assistant discovery: `GET /api/v3.4/assistants/`, `GET /api/v3.4/assistants/{assistant_id}/` (list and get by ID with collections; each collection contains reference_ids).
+    - **FR2** Assistant-bound collections: In `POST /api/v3.4/chats/{chat_id}/messages/`, when `collection_ids` is omitted or empty, the server SHALL use the collections assigned to the chat's assistant_id (assistant-bound collections). When provided, server uses the given collection_ids. SR 3.2 (`POST /api/v3.2/chats/{chat_id}/messages/`) requires explicit collection_ids. Same request/response schema for both versions. See SR 3.2 spec for full message endpoint details.
+    - **FR3** Image retrieval: `POST /api/v3.4/images/` (request body contains S3 path), `POST /api/v3.4/images/download`, `GET /api/v3.4/references/{reference_id}/images` (single image, zip of multiple, zip of all images for a reference); caching and authorization required.
+    - **FR4** Reference chunks: `GET /api/v3.4/references/{reference_id}/chunks `; caching and authorization required.
+  version: 3.4.0
 paths:
-  /api/v3/actions/chunking/:
+
+
+  # --- SR 3.4: Assistant-bound collections (FR2) ---
+  /api/v3.4/chats/{chat_id}/messages/:
     post:
       tags:
-        - Data Processing API - Document Processing
-      summary: Break reference/attachment to chunk
-      operationId: chunking_api_v3_actions_chunking__post
+        - Chat endpoints 3.4
+      summary: Create New Message
+      description: |
+        Add a new message to a conversation. Same request/response schema as
+        `POST /api/v3.2/chats/{chat_id}/messages/` (see SR 3.2 spec).
+
+        **Collection resolution (SR 3.2 vs SR 3.4):**
+        - **SR 3.2** (`/api/v3.2/...`): Client MUST pass `collection_ids` in the
+          request body. Server uses only the collections explicitly provided.
+        - **SR 3.4** (`/api/v3.4/...`): When `collection_ids` is omitted or
+          empty, the server SHALL use the collections assigned to the chat's
+          assistant (assistant-bound collections). When `collection_ids` is
+          provided, server uses those collections. Behavior MUST be deterministic.
+
+        **Search mode (SR 3.4):** The optional `search_mode` field is a list
+        selecting the retrieval strategies. Allowed item values are
+        `internal_search` and `web_search`. When the list is empty or the
+        field is null/omitted, the server SHALL fall back to
+        `["internal_search"]`.
+      operationId: create_new_message_api_v3_4_chats__chat_id__messages__post
       security:
         - MyHTTPBearer: []
       parameters:
-        - name: input_type
-          in: query
+        - name: chat_id
+          in: path
           required: true
           schema:
-            $ref: '#/components/schemas/InputFormat'
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Chat Id
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ChunkingRequest'
+              $ref: '#/components/schemas/MessageCreate3.4'
       responses:
         '200':
-          description: Successful Response
           content:
-            application/json:
+            text/event-stream:
               schema:
-                $ref: '#/components/schemas/Chunks'
-              examples:
-                json:
-                  summary: json
-                  value:
-                    - label: COMPANY
-                      properties:
-                        companyName: default
-                    - label: DOCUMENT
-                      properties:
-                        companyName: default
-                        docName: ''
-                        docType: plain/text
-                    - label: PAGE
-                      properties:
-                        companyName: default
-                        pageIdx: 0
-                        parentDocName: ''
-                        pageNumber: ''
-                        pageName: ''
-                        pageHeader: ''
-                        pageFooter: ''
-                        title: ''
-                        uniIdx: default--page-0
-                    - label: SECTION
-                      properties:
-                        companyName: default
-                        parentDocName: ''
-                        parentPageIdx: 0
-                        sectionIdx: 0
-                        currentIndex: 0
-                        sectionHeading: ''
-                        title: ''
-                        text: '{''elements'': [{''container_number'': 0, ''role'': ''figure'', ''text'': '''', ''attributes'': {''bbox'': {''x0'': 24.89, ''top'': 20.67, ''x1'': 380.25, ''bottom'': 370.12}, ''extracted_texts'': [''='', ''血 . .'', ''-'', ''.'', ''.'', ''FOUNDED 1926 VGOVAJNRD''], ''path'': ''data/document-extract/docreader/0bfabbccb863463d96795672f7b5c971/2dd0f49b3ab8460f98c25f6880f96550.png''}}, {''container_number'': 0, ''role'': ''figure'', ''text'': '''', ''attributes'': {''bbox'': {''x0'': 1869.73, ''top'': 28.41, ''x1'': 2148.73, ''bottom'': 370.69}, ''extracted_texts'': [''SIGGRAPH ASIA 2024 . TOKYO''], ''path'': ''data/document-extract/docreader/0bfabbccb863463d96795672f7b5c971/bc82c2074ab7405faf0f916489afd500.png''}}, {''container_number'': 0, ''role'': ''section_header'', ''text'': ''Anime line art colorization by region matching\nusing region shape'', ''attributes'': {''bbox'': {''x0'': 821.29, ''top'': 124.78, ''x1'': 1356.55, ''bottom'': 184.58}}}, {''container_number'': 0, ''role'': ''section_header'', ''text'': ''Daisuke Nanya\r\n1, Kouki Yonezawa2'', ''attributes'': {''bbox'': {''x0'': 824.26, ''top'': 223.65, ''x1'': 1353.74, ''bottom'': 257.85}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''1Graduate School of Science and Technology, Meijo University, Japan\n2Faculty of Information Engineering, Meijo University, Japan'', ''attributes'': {''bbox'': {''x0'': 679.87, ''top'': 336.16, ''x1'': 1497.31, ''bottom'': 366.71}}}, {''container_number'': 0, ''role'': ''section_header'', ''text'': ''Method'', ''attributes'': {''bbox'': {''x0'': 1380.64, ''top'': 412.92, ''x1'': 1527.57, ''bottom'': 451.9}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''Abstract'', ''attributes'': {''bbox'': {''x0'': 296.54, ''top'': 412.92, ''x1'': 467.76, ''bottom'': 453}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''1. Extracting region information (from all regions contained in both images)'', ''attributes'': {''bbox'': {''x0'': 761.55, ''top'': 460.57, ''x1'': 2008.66, ''bottom'': 497.61}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''✓ Gathering information about each region including the centers of gravity, areas, \nand shape features.'', ''attributes'': {''bbox'': {''x0'': 805.32, ''top'': 550.53, ''x1'': 1129.07, ''bottom'': 584.01}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ This study introduces a colorization \nsystem for anime line art using a \nreference image.'', ''attributes'': {''bbox'': {''x0'': 76.65, ''top'': 550.53, ''x1'': 348.6, ''bottom'': 584.01}}}, {''container_number'': 0, ''role'': ''figure'', ''text'': '''', ''attributes'': {''bbox'': {''x0'': 786.93, ''top'': 586.12, ''x1'': 2132.98, ''bottom'': 715.5}, ''extracted_texts'': [''Area:  0 . 009'', ''ResNet34 [4]'', ''Shape features'', ''(512'', ''vectors) -'', ''(pre - trained)'', ''Center of gravity: '', ''565 . 0 , 0 .'', ''174''], ''path'': ''data/document-extract/docreader/0bfabbccb863463d96795672f7b5c971/c44e509498c949bfa444fe5526e52613.png''}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ The proposed system colors line art \nbased on the features of corresponding \nregions in the reference image.'', ''attributes'': {''bbox'': {''x0'': 76.65, ''top'': 680.15, ''x1'': 585.12, ''bottom'': 713.63}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''Introduction'', ''attributes'': {''bbox'': {''x0'': 262.8, ''top'': 761.1, ''x1'': 502.94, ''bottom'': 800.22}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''Background'', ''attributes'': {''bbox'': {''x0'': 32.12, ''top'': 812.45, ''x1'': 219.9, ''bottom'': 845.93}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ The coloring phase in anime production \nis essential but demands substantial \ntime and effort. '', ''attributes'': {''bbox'': {''x0'': 65.53, ''top'': 942.05, ''x1'': 329.95, ''bottom'': 969.7}}}, {''container_number'': 0, ''role'': ''figure'', ''text'': '''', ''attributes'': {''bbox'': {''x0'': 757.68, ''top'': 1111.5, ''x1'': 2141.98, ''bottom'': 1334.25}, ''extracted_texts'': [''𝐷 𝑝𝑜𝑖𝑛𝑡 :  the total difference '', ''𝐷 𝑐𝑒𝑛𝑡𝑒𝑟 : '', ''𝐷 𝑠ℎ𝑎𝑝𝑒 the sum of the absolute  : '', ''𝐷 𝑎𝑟𝑒𝑎 : '', ''the Manhattan '', ''the absolute '', ''Parameters:'', ''distance between '', ''between the distance '', ''differences between the '', ''difference in the '', ''0 :  . 001'', ''𝛼 1 ,  𝛼 2 '', ''the centers of '', ''from the both regions '', ''shape feature vectors of '', ''areas of the two '', ''𝛽 1 ,  𝛽 2'', ''1'', '': '', ''𝛾 1 ,  ,  𝛾 2'', ''gravity of the two '', ''to the region '', ''regions.'', ''i the  - th '', '' j and j - th '', ''regions.'', ''regions.'', ''associated with  𝐹1 𝐹1 .''], ''path'': ''data/document-extract/docreader/0bfabbccb863463d96795672f7b5c971/6fd947c47c974faa8c6b76ba7a5d15c8.png''}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ Interviews with Studio Trigger [1], a \nJapanese animation studio, coloring a \nsingle line art can take up to 30 min, \nresulting in considerable time spent by \nthe coloring staff.'', ''attributes'': {''bbox'': {''x0'': 65.53, ''top'': 1158.04, ''x1'': 352.36, ''bottom'': 1191.54}}}, {''container_number'': 0, ''role'': ''figure'', ''text'': '''', ''attributes'': {''bbox'': {''x0'': 1686.36, ''top'': 1329.75, ''x1'': 2044.11, ''bottom'': 1458}, ''extracted_texts'': [], ''path'': ''data/document-extract/docreader/0bfabbccb863463d96795672f7b5c971/e78478b6224945968d7b470d576deba1.png''}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ Anime images and their line art are \nsegmented into numerous regions with \neach region typically assigned a single \ncolor, except in specific cases.'', ''attributes'': {''bbox'': {''x0'': 66.5, ''top'': 1330.87, ''x1'': 566.11, ''bottom'': 1364.35}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''Purpose'', ''attributes'': {''bbox'': {''x0'': 32.12, ''top'': 1374.54, ''x1'': 161.32, ''bottom'': 1407.55}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ To minimize the time and effort involved \nin the coloring process.'', ''attributes'': {''bbox'': {''x0'': 67.33, ''top'': 1460.47, ''x1'': 446.77, ''bottom'': 1493.95}}}, {''container_number'': 0, ''role'': ''table'', ''text'': ''| Our method | 77.18% | 99.23% |\n| AnT | 75.25% | 99.44% |\n'', ''attributes'': {''bbox'': {''x0'': 802.68, ''top'': 2067.75, ''x1'': 1563.74, ''bottom'': 2238.75}, ''path'': ''data/document-extract/docreader/0bfabbccb863463d96795672f7b5c971/cfb5cfd4cc484b788095e9863ec28943.xlsx''}, ''cells'': [{''container_number'': 0, ''text'': ''Method'', ''row_indices'': [0], ''col_indices'': [0], ''col_header'': True, ''projected_row_header'': False, ''attributes'': {''bbox'': {''x0'': 25.32, ''top'': 7.25, ''x1'': 221.32, ''bottom'': 47.25}}}, {''container_number'': 0, ''text'': ''Region-based'', ''row_indices'': [0], ''col_indices'': [1], ''col_header'': True, ''projected_row_header'': False, ''attributes'': {''bbox'': {''x0'': 263.32, ''top'': 7.25, ''x1'': 493.32, ''bottom'': 47.25}}}, {''container_number'': 0, ''text'': ''Area-based'', ''row_indices'': [0], ''col_indices'': [2], ''col_header'': True, ''projected_row_header'': False, ''attributes'': {''bbox'': {''x0'': 537.32, ''top'': 7.25, ''x1'': 729.32, ''bottom'': 47.25}}}, {''container_number'': 0, ''text'': ''Our method'', ''row_indices'': [1], ''col_indices'': [0], ''col_header'': False, ''projected_row_header'': False, ''attributes'': {''bbox'': {''x0'': 25.32, ''top'': 64.25, ''x1'': 221.32, ''bottom'': 104.25}}}, {''container_number'': 0, ''text'': ''77.18%'', ''row_indices'': [1], ''col_indices'': [1], ''col_header'': False, ''projected_row_header'': False, ''attributes'': {''bbox'': {''x0'': 263.32, ''top'': 64.25, ''x1'': 493.32, ''bottom'': 104.25}}}, {''container_number'': 0, ''text'': ''99.23%'', ''row_indices'': [1], ''col_indices'': [2], ''col_header'': False, ''projected_row_header'': False, ''attributes'': {''bbox'': {''x0'': 537.32, ''top'': 64.25, ''x1'': 729.32, ''bottom'': 104.25}}}, {''container_number'': 0, ''text'': ''AnT'', ''row_indices'': [2], ''col_indices'': [0], ''col_header'': False, ''projected_row_header'': False, ''attributes'': {''bbox'': {''x0'': 25.32, ''top'': 121.25, ''x1'': 221.32, ''bottom'': 160.25}}}, {''container_number'': 0, ''text'': ''75.25%'', ''row_indices'': [2], ''col_indices'': [1], ''col_header'': False, ''projected_row_header'': False, ''attributes'': {''bbox'': {''x0'': 263.32, ''top'': 121.25, ''x1'': 493.32, ''bottom'': 160.25}}}, {''container_number'': 0, ''text'': ''99.44%'', ''row_indices'': [2], ''col_indices'': [2], ''col_header'': False, ''projected_row_header'': False, ''attributes'': {''bbox'': {''x0'': 537.32, ''top'': 121.25, ''x1'': 729.32, ''bottom'': 160.25}}}]}, {''container_number'': 0, ''role'': ''section_header'', ''text'': ''Related Work'', ''attributes'': {''bbox'': {''x0'': 248.22, ''top'': 1546.7, ''x1'': 518.99, ''bottom'': 1586.78}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''Graph correspondence-based coloring'', ''attributes'': {''bbox'': {''x0'': 30.57, ''top'': 1597.91, ''x1'': 650.33, ''bottom'': 1631.39}}}, {''container_number'': 0, ''role'': ''figure'', ''text'': '''', ''attributes'': {''bbox'': {''x0'': 761.06, ''top'': 1632.38, ''x1'': 2146.48, ''bottom'': 1906.88}, ''extracted_texts'': [''Reference image '', ''Colorized image '', ''Line art '', ''Error image''], ''path'': ''data/document-extract/docreader/0bfabbccb863463d96795672f7b5c971/580f797eaa7848a1a2ea3be4b0f8e5a0.png''}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ The method proposed in [2] does not \ncolor line art with colors that are not \ncontained in the reference image.'', ''attributes'': {''bbox'': {''x0'': 75.5, ''top'': 1727.51, ''x1'': 626.77, ''bottom'': 1760.99}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ Nevertheless, region correspondence is \ncalculated based on the node between \nregions, there is a concern that the \ncalculation time will be long.'', ''attributes'': {''bbox'': {''x0'': 75.5, ''top'': 1900.31, ''x1'': 542.17, ''bottom'': 1933.79}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''Neural network-based coloring'', ''attributes'': {''bbox'': {''x0'': 32.12, ''top'': 1943.51, ''x1'': 530.33, ''bottom'': 1976.99}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ The method proposed in [3] can color \neven if the composition of line art and \nreference images are not similar.'', ''attributes'': {''bbox'': {''x0'': 76.65, ''top'': 2073.13, ''x1'': 615.57, ''bottom'': 2106.61}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ Nevertheless, this method is unsuitable \nfor anime because a single region may \ncontain multiple colors.'', ''attributes'': {''bbox'': {''x0'': 75.5, ''top'': 2202.73, ''x1'': 457.06, ''bottom'': 2236.21}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''Approach'', ''attributes'': {''bbox'': {''x0'': 284.9, ''top'': 2287.88, ''x1'': 479.26, ''bottom'': 2331.37}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ We focus on anime images consisting \nof many regions and each region have a \nsingle color.'', ''attributes'': {''bbox'': {''x0'': 75.14, ''top'': 2425.48, ''x1'': 269.79, ''bottom'': 2458.98}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ Our method finds corresponding \nregions in the two images and colors \nthe line art with the color of the \ncorresponding region in the reference \nimage.'', ''attributes'': {''bbox'': {''x0'': 76.33, ''top'': 2643.02, ''x1'': 180.15, ''bottom'': 2674.99}}}, {''container_number'': 0, ''role'': ''section_header'', ''text'': ''Acknowledgements'', ''attributes'': {''bbox'': {''x0'': 185.04, ''top'': 2738.24, ''x1'': 579.12, ''bottom'': 2781.54}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''The dataset used in this work was provided by \nNational Institute of Informatics and Studio Trigger.'', ''attributes'': {''bbox'': {''x0'': 31.28, ''top'': 2821.82, ''x1'': 691.46, ''bottom'': 2847.88}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''2. Predicting regions (based on a cost function 𝐹)'', ''attributes'': {''bbox'': {''x0'': 760.32, ''top'': 720.03, ''x1'': 1586.63, ''bottom'': 757.07}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''✓ 𝐹1 determines the corresponding region in large regions (greater than 0.5% of the \ntotal area), and 𝐹2 determines the corresponding region in small regions.'', ''attributes'': {''bbox'': {''x0'': 804.39, ''top'': 806.43, ''x1'': 1999.54, ''bottom'': 844.96}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''✓ The cost function assesses the similarity between the i-th region in the line art \nand the j-th region in the reference image.'', ''attributes'': {''bbox'': {''x0'': 805.32, ''top'': 896.51, ''x1'': 1501.32, ''bottom'': 931.58}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''✓ Our method identifies the corresponding j-th region that minimized the cost \nfunction for the i-th region.'', ''attributes'': {''bbox'': {''x0'': 804.32, ''top'': 982.91, ''x1'': 1248.23, ''bottom'': 1016.39}}}, {''container_number'': 0, ''role'': ''caption'', ''text'': ''𝐹1(𝑖,𝑗) = exp(𝛼1 ∙ 𝐷𝑠ℎ𝑎𝑝𝑒) ∙ exp(𝛽1 ∙ 𝐷𝑎𝑟𝑒𝑎) ∙ exp(𝛾1 ∙ 𝐷𝑐𝑒𝑛𝑡𝑒𝑟)\n𝐹2(𝑖,𝑗) = exp(𝛼2 ∙ 𝐷𝑠ℎ𝑎𝑝𝑒) ∙ exp(𝛽2 ∙ 𝐷𝑎𝑟𝑒𝑎) ∙ exp(𝛾2 ∙ 𝐷𝑝𝑜𝑖𝑛𝑡)'', ''attributes'': {''bbox'': {''x0'': 989.85, ''top'': 1075.11, ''x1'': 1913.23, ''bottom'': 1113.18}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''3. Coloring'', ''attributes'': {''bbox'': {''x0'': 760.04, ''top'': 1334.81, ''x1'': 951.16, ''bottom'': 1368.29}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''✓ Coloring the regions in the line art with colors of \nthe corresponding regions in the reference image.'', ''attributes'': {''bbox'': {''x0'': 804.39, ''top'': 1421.2, ''x1'': 1625.1, ''bottom'': 1454.7}}}, {''container_number'': 0, ''role'': ''section_header'', ''text'': ''Result'', ''attributes'': {''bbox'': {''x0'': 1392.7, ''top'': 1505.28, ''x1'': 1516.2, ''bottom'': 1544.26}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''Colorization result'', ''attributes'': {''bbox'': {''x0'': 760.43, ''top'': 1556.48, ''x1'': 1054, ''bottom'': 1584.14}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ Our dataset [5] is a real animated work [6].'', ''attributes'': {''bbox'': {''x0'': 761.22, ''top'': 1596.58, ''x1'': 1516.65, ''bottom'': 1630.74}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''Accuracy rate'', ''attributes'': {''bbox'': {''x0'': 759.39, ''top'': 1902.58, ''x1'': 979.92, ''bottom'': 1935.59}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ We compared the accuracy rates with existing methods (AnT) [7], implemented \nas Cadmium [8]. These accuracy rates are the averages for 57 colorized images.'', ''attributes'': {''bbox'': {''x0'': 805.32, ''top'': 1985.5, ''x1'': 2126.32, ''bottom'': 2022.11}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ We generated 62 images from 31 cuts, but AnT was unable to colorize 5 images.'', ''attributes'': {''bbox'': {''x0'': 761.22, ''top'': 2031.71, ''x1'': 2127.04, ''bottom'': 2065.19}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''These colorized images are the \nprevious one frame and the next one \nframe of the reference.'', ''attributes'': {''bbox'': {''x0'': 1577.87, ''top'': 2181.74, ''x1'': 1912.98, ''bottom'': 2206.32}}}, {''container_number'': 0, ''role'': ''section_header'', ''text'': ''Conclusion'', ''attributes'': {''bbox'': {''x0'': 1342.78, ''top'': 2284.71, ''x1'': 1564.92, ''bottom'': 2327.04}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ Our method can assist users in coloring line arts.'', ''attributes'': {''bbox'': {''x0'': 761.22, ''top'': 2338.53, ''x1'': 1610.9, ''bottom'': 2372.01}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''⚫ We confirmed that our method tends to color large regions correctly.'', ''attributes'': {''bbox'': {''x0'': 761.22, ''top'': 2381.73, ''x1'': 1932.41, ''bottom'': 2415.21}}}, {''container_number'': 0, ''role'': ''section_header'', ''text'': ''References'', ''attributes'': {''bbox'': {''x0'': 1338.22, ''top'': 2484.5, ''x1'': 1568.86, ''bottom'': 2523.48}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''[1] Trigger, Inc., TRIGGER official website, https://www.st-trigger.co.jp/.'', ''attributes'': {''bbox'': {''x0'': 767.9, ''top'': 2535.12, ''x1'': 1458.18, ''bottom'': 2555.44}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''[2] T. Do et al., Anime sketch colorization by component-based matching using deep appearance features and graph representation, International \nConference on Pattern Recognition, pp. 3154-3161, 2020.'', ''attributes'': {''bbox'': {''x0'': 823.34, ''top'': 2592.06, ''x1'': 1347.24, ''bottom'': 2610.64}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''[3] Y. Cao et al., Attention-Aware Anime Line Drawing Colorization, IEEE International Conference on Multimedia and Expo, pp. 1637-1642, 2023.'', ''attributes'': {''bbox'': {''x0'': 767.9, ''top'': 2621.52, ''x1'': 2122.28, ''bottom'': 2641.84}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''[4] K. He et al., Deep Residual Learning for Image Recognition, IEEE Conference on Computer Vision and Pattern Recognition, pp. 770-'', ''attributes'': {''bbox'': {''x0'': 767.9, ''top'': 2652.72, ''x1'': 2031.57, ''bottom'': 2673.04}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''TRIGGER, Y. Yoshinari, GOOD SMILE COMPANY, “Little Witch Academia: The Enchanted Parade” official website, \nhttp://littlewitchacademia.jp/.'', ''attributes'': {''bbox'': {''x0'': 823.94, ''top'': 2739.44, ''x1'': 1099.7, ''bottom'': 2759.44}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''E. Casey et al., The Animation Transformer: Visual Correspondence via Segment Matching, IEEE/CVF International Conference on Computer \nVision, pp. 11303-11312, 2021.'', ''attributes'': {''bbox'': {''x0'': 822.76, ''top'': 2796.32, ''x1'': 1102.49, ''bottom'': 2814.64}}}, {''container_number'': 0, ''role'': ''text'', ''text'': ''[8] Cadmium, Cadmium App, https://cadmium.app/.'', ''attributes'': {''bbox'': {''x0'': 767.9, ''top'': 2825.52, ''x1'': 1270.49, ''bottom'': 2845.84}}}], ''containers'': [{''container_number'': 1, ''width'': 2176.98, ''height'': 2880}], ''file_format'': ''.pdf'', ''file_name'': ''data/document-extract/docreader/0bfabbccb863463d96795672f7b5c971/95fc11877853453f9ed5faca5f978d67.pdf''}'
-                        pageHeader: ''
-                        pageFooter: ''
-                        uniIdx: default--page-0-section-0-0
-                        vectordbIds: []
-                plaintext:
-                  summary: plaintext
-                  value:
-                    - label: COMPANY
-                      properties:
-                        companyName: default
-                    - label: DOCUMENT
-                      properties:
-                        companyName: default
-                        docName: ''
-                        docType: plain/text
-                    - label: PAGE
-                      properties:
-                        companyName: default
-                        pageIdx: 0
-                        parentDocName: ''
-                        pageNumber: ''
-                        pageName: ''
-                        pageHeader: ''
-                        pageFooter: ''
-                        title: ''
-                        uniIdx: default--page-0
-                    - label: SECTION
-                      properties:
-                        companyName: default
-                        parentDocName: ''
-                        parentPageIdx: 0
-                        sectionIdx: 0
-                        currentIndex: 0
-                        sectionHeading: ''
-                        title: ''
-                        text: Today is a beautiful day
-                        pageHeader: ''
-                        pageFooter: ''
-                        uniIdx: default--page-0-section-0-0
-                        vectordbIds: []
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not authenticated
-                code: UnauthenticatedError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-        '422':
-          content:
-            application/json:
-              example:
-                message: 'body.field1.field2: field required, ...'
-                code: ValidationError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unprocessable Entity
-  /api/v3.3/actions/chunking/:
-    post:
-      tags:
-        - Data Processing API 3.3 - Document Processing
-      summary: Break reference/attachment to chunk
-      operationId: chunking_api_v3.3_actions_chunking__post
-      parameters:
-        - name: input_type
-          in: query
-          required: true
-          schema:
-            $ref: '#/components/schemas/ChunkingInputType'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ChunkingPayloadRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  oneOf:
-                    - $ref: '#/components/schemas/DocumentComponent'
-                    - $ref: '#/components/schemas/TOCComponent'
-                    - $ref: '#/components/schemas/PageComponent'
-                    - $ref: '#/components/schemas/SectionComponent'
-                    - $ref: '#/components/schemas/TableComponent'
-                    - $ref: '#/components/schemas/DiagramComponent'
-                    - $ref: '#/components/schemas/UnstructuredComponent'
-                    - $ref: '#/components/schemas/FAQComponent'
-                    - $ref: '#/components/schemas/DictionaryComponent'
-                  discriminator:
-                    propertyName: label
-                    mapping:
-                      DOCUMENT: '#/components/schemas/DocumentComponent'
-                      TABLEOFCONTENTS: '#/components/schemas/TOCComponent'
-                      PAGE: '#/components/schemas/PageComponent'
-                      SECTION: '#/components/schemas/SectionComponent'
-                      TABLE: '#/components/schemas/TableComponent'
-                      DIAGRAM: '#/components/schemas/DiagramComponent'
-                      FREETEXT: '#/components/schemas/UnstructuredComponent'
-                      FAQ: '#/components/schemas/FAQComponent'
-                      DICTIONARY: '#/components/schemas/DictionaryComponent'
-                title: Response Chunking Ai V3 Actions Chunking  Post
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not authenticated
-                code: UnauthenticatedError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-        '422':
-          content:
-            application/json:
-              example:
-                message: 'body.field1.field2: field required, ...'
-                code: ValidationError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unprocessable Entity
-                
-  /api/v3/actions/document-extract/:
-    post:
-      tags:
-        - Data Processing API - Document Processing
-      summary: Extract content from reference/attachment
-      operationId: Document Extractor
-      parameters:
-        - name: output_type
-          in: query
-          required: true
-          schema:
-            type: string
-            enum:
-              - json
-              - markdown
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/Body_create_attachment_api_v3_attachments__post'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  file_name:
-                    type: string
-                  file_format:
-                    type: string
-                  markdown:
-                    type: string
-                    default: null
-                  elements:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        container_number:
-                          type: integer
-                        role:
-                          type: string
-                        text:
-                          type: string
-                        attributes:
-                          type: object
-                          properties:
-                            bbox:
-                              type: object
-                              properties:
-                                top:
-                                  type: number
-                                bottom:
-                                  type: number
-                                left:
-                                  type: number
-                                right:
-                                  type: number
-                            path:
-                              type: string
-                  containers:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        container_number:
-                          type: integer
-                        width:
-                          type: number
-                        height:
-                          type: number
-                        attributes:
-                          type: object
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-              example:
-                message: invalid access token
-                code: UnauthorizedError
-        '403':
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-              example:
-                message: not authenticated
-                code: UnauthenticatedError
-        '422':
-          description: File Upload Error
-          content:
-            application/json:
-              examples:
-                FileUploadError:
-                  summary: File Upload Error
-                  value:
-                    code: FileUploadError
-                    message: 'File Error: {message}'
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              examples:
-                InternalServerError:
-                  summary: Internal Server Error
-                  value:
-                    code: InternalServerError
-                    message: internal server error, contact the dev to fix it
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-  /api/v3.3/actions/document-extract/:
-    post:
-      tags:
-        - Data Processing API 3.3 - Document Processing
-      summary: Extract content from reference/attachment
-      operationId: extract_ai_v3.3_actions_document_extract__post
-      parameters:
-        - name: output_type
-          in: query
-          required: true
-          schema:
-            $ref: '#/components/schemas/ExtractorResponseType'
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/Body_extract_ai_v3.3_actions_document_extract__post'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                anyOf:
-                  - oneOf:
-                      - $ref: '#/components/schemas/ReferencesAdaptiveResponse'
-                      - $ref: '#/components/schemas/PowerPointAdaptiveResponse'
-                      - $ref: '#/components/schemas/ImageAdaptiveResponse'
-                    discriminator:
-                      propertyName: spec_type
-                      mapping:
-                        references: '#/components/schemas/ReferencesAdaptiveResponse'
-                        powerpoint: '#/components/schemas/PowerPointAdaptiveResponse'
-                        image: '#/components/schemas/ImageAdaptiveResponse'
-                  - $ref: '#/components/schemas/StructuredResponseMarkdown'
-                title: Response Extract Ai V3 Actions Document Extract  Post
-              example:
-                spectype: references
-                elements:
-                  - role: section
-                    pageidx: 0
-                    globalidx: 1
-                    contents:
-                      - "Introduction"
-                      - "This is the introduction section content."
-                    attributes:
-                      bbox:
-                        top: 72
-                        left: 48
-                        bottom: 300
-                        right: 600
-                    paragraphs:
-                      - "Introduction"
-                      - "This is the introduction section content."
-                  - role: table
-                    pageidx: 1
-                    globalidx: 2
-                    contents:
-                      - "Table Header"
-                      - "Row 1"
-                      - "Row 2"
-                    attributes:
-                      bbox:
-                        top: 320
-                        left: 60
-                        bottom: 450
-                        right: 700
-                    numcolumn: 3
-                    numrow: 2
-                    cells:
-                      - rowindices: [0]
-                        colindices: [0]
-                        content: "Header 1"
-                      - rowindices: [1]
-                        colindices: [0]
-                        content: "Value 1"
-                pages:
-                  - pageidx: 0
-                    name: "Page 1"
-                    width: 1024
-                    height: 768
-                    titles: ["Sample Document"]
-                    headers: ["Company Confidential"]
-                    footers: ["Page 1"]
-                dynamicfields:
-                  xpaths: {}
-                  tableofcontents: null
-                  hastable: false
-                filename: "sample.pdf"
-                fileformat: "pdf"
+                type: string
+              example: |
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"申し"}]
 
-        '401':
-          description: Unauthorized
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"訳"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"ありません"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"が"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"、"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"提供"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"された"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"コン"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"テ"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"キ"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"スト"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"には"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"天"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"気"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"に"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"関"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"する"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"情報"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"が"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"含"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"ま"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"れて"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"い"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"ない"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"ため"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"、"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"今日"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"の"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"天"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"気"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"について"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"は"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"お"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"答"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"え"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"でき"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"ません"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"。"}]
+
+                event: evidences
+                data: [{"id":0,"text":"申し訳ありませんが、提供されたコンテキストには天気に関する情報が含まれていないため、今日の天気についてはお答えできません。","mapping":{}}]
+
+                event: chunks
+                data: []
+
+                event: files
+                data: {"attachments":[],"references":[]}
+          description: OK
+        '201':
+          description: Successful Response
+        '400':
           content:
             application/json:
+              examples:
+                Invalid Parent I D Error:
+                  summary: Invalid Parent I D Error
+                  value:
+                    message: invalid parent ID {parent_id}
+                    code: InvalidParentIDError
+                Token Limits Exceeded Error:
+                  summary: Token Limits Exceeded Error
+                  value:
+                    message: exceeded token limits for {level}{obj_id}
+                    code: TokenLimitsExceededError
               schema:
                 $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Bad Request
+        '401':
+          content:
+            application/json:
               example:
                 message: invalid access token
-                code: UnauthorizedError
-        '403':
-          description: Unauthenticated
-          content:
-            application/json:
+                code: InvalidAccessTokenError
               schema:
                 $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
               example:
                 message: not authenticated
                 code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              examples:
+                Chat Not Found Error:
+                  summary: Chat Not Found Error
+                  value:
+                    message: chat {chat_id} not found
+                    code: ChatNotFoundError
+                Invalid Attachments Error:
+                  summary: Invalid Attachments Error
+                  value:
+                    message: attachments {attachment_ids} not found or access denied
+                    code: InvalidAttachmentsError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '413':
+          content:
+            application/json:
+              example:
+                message: 'max attachments file size exceeded, current size: {current_size}, max size: {max_size}'
+                code: MaxAttachmentsSizeExceededError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Request Entity Too Large
         '422':
-          description: File Upload Error
           content:
             application/json:
-              examples:
-                FileUploadError:
-                  summary: File Upload Error
-                  value:
-                    code: FileUploadError
-                    message: 'File Error: {message}'
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
               schema:
                 $ref: '#/components/schemas/ErrorResponseWithCode'
-        '500':
-          description: Internal Server Error
+          description: Unprocessable Entity
+
+  /api/v3.4/chats/{chat_id}/:
+    get:
+      tags:
+        - Chat endpoints 3.4
+      summary: Get Chat
+      description: Retrieve conversation details, including messages and evidence
+      operationId: get_chat_api_v3_4_chats__chat_id___get
+      security:
+        - MyHTTPBearer: []
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Chat Id
+      responses:
+        '200':
+          description: Success
           content:
             application/json:
-              examples:
-                InternalServerError:
-                  summary: Internal Server Error
-                  value:
-                    code: InternalServerError
-                    message: internal server error, contact the dev to fix it
+              schema:
+                $ref: '#/components/schemas/ChatWithMessagesResponse3.4'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
               schema:
                 $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: chat {chat_id} not found
+                code: ChatNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+
+
+  # --- SR 3.4: Web search feature flag config ---
+  /api/v3.4/config/web-search-enabled/:
+    get:
+      tags:
+        - Config endpoints
+      summary: Get Web Search Enabled Config
+      description: Get web search feature flag configuration.
+      operationId: >-
+        get_web_search_enabled_config_api_v3_4_config_web_search_enabled__get
+      security:
+        - MyHTTPBearer: []
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebSearchEnabledResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+    put:
+      tags:
+        - Config endpoints
+      summary: Update Web Search Enabled Config
+      description: Enable or disable web search feature.
+      operationId: >-
+        update_web_search_enabled_config_api_v3_4_config_web_search_enabled__put
+      security:
+        - MyHTTPBearer:
+            - 'config:create'
+            - 'config:update'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebSearchEnabledUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebSearchEnabledResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+
+  # --- SR 3.4: User role management ---
+  /api/v3.4/users/{user_id}/role/warnings/:
+    get:
+      tags:
+        - Users
+      summary: Get Role Change Warnings
+      description: Return sync-collection warnings for a proposed role change.
+      operationId: get_role_change_warnings_api_v3_4_users__user_id__role_warnings__get
+      security:
+        - MyHTTPBearer:
+            - 'user:update'
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: User Id
+        - name: new_role
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/Role'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/app__api__v3__payload__users__UserResponseWithGroup'
+              example:
+                id: a56bff68b1294b9c9d23bd64764d2a99
+                username: groupadmin@example.com
+                last_name: Admin
+                first_name: Group
+                display_name: Admin Group
+                role: Admin
+                language: en
+                created_at: '2025-02-07T04:30:10.759370Z'
+                updated_at: '2025-02-10T07:32:52.025864Z'
+                last_login: '2025-02-07T09:17:38.334283Z'
+                force_password_change: false
+                ai_settings:
+                  indexing:
+                    chunk_size: 1
+                  llm:
+                    language: auto-detect
+                groups:
+                  - name: New general user group
+                    id: 78b89043a8e34122a352783079f5c17b
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not enough permission to perform this action
+                code: NoPermissionError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: user id {userid} not found
+                code: UserNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+  /api/v3.4/users/{user_id}/role/:
+    patch:
+      tags:
+        - Users
+      summary: Change User Role
+      description: Change a user's role and replace their direct permissions.
+      operationId: change_user_role_api_v3_4_users__user_id__role__patch
+      security:
+        - MyHTTPBearer:
+            - 'user:update'
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: User Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleChangePayload'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/app__api__v3__payload__users__UserResponse'
+              example:
+                id: 57e1a7a87af0413183b5ea6d8620a222
+                username: generaluser2@example.com
+                last_name: New last name
+                first_name: New first name
+                display_name: New last name New first name
+                role: User
+                language: en
+                created_at: '2025-02-10T07:43:06.944258Z'
+                updated_at: '2025-02-10T07:46:17.809532Z'
+                force_password_change: false
+                ai_settings:
+                  indexing:
+                    chunk_size: 1
+                  llm:
+                    language: auto-detect
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not enough permission to perform this action
+                code: NoPermissionError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: user id {userid} not found
+                code: UserNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+
 components:
   schemas:
-    Body_create_attachment_api_v3_attachments__post:
-      properties:
-        file:
-          type: string
-          format: binary
-          title: File
+    WebSearchEnabledResponse:
       type: object
       required:
-        - file
-      title: Body_create_attachment_api_v3_attachments__post
-    ErrorResponseWithCode:
+        - web_search_enabled
       properties:
-        message:
+        web_search_enabled:
+          type: boolean
+          title: Web Search Enabled
+          description: If true, web search feature is available
+      title: WebSearchEnabledResponse
+    WebSearchEnabledUpdate:
+      type: object
+      required:
+        - web_search_enabled
+      properties:
+        web_search_enabled:
+          type: boolean
+          title: Web Search Enabled
+          description: Enable or disable web search feature
+      title: WebSearchEnabledUpdate
+    UserResponse:
+      properties:
+        id:
           type: string
-          title: Message
-        code:
+          title: Id
+        username:
+          type: string
+          title: Username
+        last_name:
           anyOf:
             - type: string
             - nullable: true
-          title: Code
+          title: Last Name
+        first_name:
+          type: string
+          title: First Name
+        display_name:
+          type: string
+          title: Display Name
+        role:
+          $ref: '#/components/schemas/Role'
+        language:
+          $ref: '#/components/schemas/Language'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        last_login:
+          anyOf:
+            - type: string
+              format: date-time
+            - nullable: true
+          title: Last Login
+        force_password_change:
+          type: boolean
+          title: Force Password Change
+          default: false
       type: object
       required:
-        - message
-      title: ErrorResponseWithCode
-    Company:
-      properties:
-        companyName:
-          type: string
-          title: Companyname
+        - id
+        - username
+        - last_name
+        - first_name
+        - display_name
+        - role
+        - language
+        - created_at
+        - updated_at
+      title: UserResponse
+    AssistantListResponse:
       type: object
       required:
-        - companyName
-      title: Company
-    Diagram:
+        - total
+        - assistants
       properties:
-        companyName:
-          type: string
-          title: Companyname
-        parentDocName:
-          type: string
-          title: Parentdocname
-        parentPageIdx:
+        total:
           type: integer
-          title: Parentpageidx
-        diagramIdx:
+          title: Total
+        assistants:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantDetail'
+          title: Assistants
+      title: AssistantListResponse
+    AssistantDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        group_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - nullable: true
+          title: Group Id
+          description: Group the assistant belongs to; null when tenant-scoped
+        description:
+          type: string
+          title: Description
+          description: Description of the assistant
+        system_prompt:
+          type: string
+          title: System Prompt
+          description: System prompt of the assistant
+        placeholder:
+          type: string
+          title: Placeholder
+          description: Placeholder of the assistant
+        num_interactions_included:
           type: integer
-          title: Diagramidx
-        text:
+          title: Number of Interactions Included
+          description: Number of interactions included in the assistant
+        top_k:
+          type: integer
+          title: Number of top relevant chunks to retrieve
+        collections:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantCollection'
+          title: Collections
+          description: Collections assigned to the assistant; references belong to collections
+        created_at:
           type: string
-          title: Text
-          default: ''
-        imagePath:
+          format: date-time
+          title: Created At
+        updated_at:
           type: string
-          title: Imagepath
-          default: ''
-        uniIdx:
+          format: date-time
+          title: Updated At
+        created_by:
+          $ref: '#/components/schemas/UserResponse'
+        updated_by:
+          $ref: '#/components/schemas/UserResponse'
+      title: AssistantDetail
+    AssistantCollection:
+      type: object
+      properties:
+        id:
           type: string
-          title: Uniidx
-          default: ''
-        vectordbIds:
+          format: uuid
+          title: Collection Id
+        name:
+          type: string
+          title: Name
+          description: Name of the collection
+        reference_ids:
+          type: array
+          items:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+          title: Reference Ids
+          description: References belonging to this collection
+      title: AssistantCollection
+    ImagePathRequest:
+      type: object
+      required:
+        - path
+      properties:
+        path:
+          type: string
+          title: Path
+          description: Image path (e.g. S3 path) from chunk or document-extract response
+      title: ImagePathRequest
+    ImagePathsRequest:
+      type: object
+      required:
+        - paths
+      properties:
+        paths:
+          type: array
           items:
             type: string
+          title: Paths
+          description: List of image paths/URIs from chunk or document-extract response
+      title: ImagePathsRequest
+    ReferenceChunksResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
           type: array
-          title: Vectordbids
-          default: []
-      type: object
-      required:
-        - companyName
-        - parentDocName
-        - parentPageIdx
-        - diagramIdx
-      title: Diagram
-    InputFormat:
-      type: string
-      enum:
-        - json
-        - plaintext
-      title: InputFormat
-    ChunkingRequest:
-      properties:
-        text:
-          anyOf:
-            - type: object
-            - type: string
-          title: Text
-        company_name:
-          anyOf:
-            - type: string
-            - nullable: true
-          title: Company Name
-        doc_name:
-          anyOf:
-            - type: string
-            - nullable: true
-          title: Doc Name
-      type: object
-      required:
-        - text
-      title: ChunkingRequest
-    Chunks:
-      items:
-        oneOf:
-          - $ref: '#/components/schemas/CompanyChunk'
-          - $ref: '#/components/schemas/DocumentChunk'
-          - $ref: '#/components/schemas/TOCChunk'
-          - $ref: '#/components/schemas/PageChunk'
-          - $ref: '#/components/schemas/SectionChunk'
-          - $ref: '#/components/schemas/TableChunk'
-          - $ref: '#/components/schemas/DiagramChunk'
-          - $ref: '#/components/schemas/QAChunk'
-          - $ref: '#/components/schemas/UnstructuredChunk'
-        discriminator:
-          propertyName: label
-          mapping:
-            COMPANY: '#/components/schemas/CompanyChunk'
-            DIAGRAM: '#/components/schemas/DiagramChunk'
-            DOCUMENT: '#/components/schemas/DocumentChunk'
-            FREETEXT: '#/components/schemas/UnstructuredChunk'
-            PAGE: '#/components/schemas/PageChunk'
-            QA: '#/components/schemas/QAChunk'
-            SECTION: '#/components/schemas/SectionChunk'
-            TABLE: '#/components/schemas/TableChunk'
-            TABLEOFCONTENTS: '#/components/schemas/TOCChunk'
-      type: array
-      title: Chunks
-    CompanyChunk:
-      properties:
-        label:
-          type: string
-          enum: [COMPANY]
-          title: Label
-          default: COMPANY
-        properties:
-          $ref: '#/components/schemas/Company'
-      type: object
-      required:
-        - properties
-      title: CompanyChunk
-    DocumentChunk:
-      properties:
-        label:
-          type: string
-          enum: [DOCUMENT]
-          title: Label
-          default: DOCUMENT
-        properties:
-          $ref: '#/components/schemas/app__api__v3__payload__actions__chunking__Document'
-      type: object
-      required:
-        - properties
-      title: DocumentChunk
-    TOCChunk:
-      properties:
-        label:
-          type: string
-          enum: [TABLEOFCONTENTS]
-          title: Label
-          default: TABLEOFCONTENTS
-        properties:
-          $ref: '#/components/schemas/TOC'
-      type: object
-      required:
-        - properties
-      title: TOCChunk
-    PageChunk:
-      properties:
-        label:
-          type: string
-          enum: [PAGE]
-          title: Label
-          default: PAGE
-        properties:
-          $ref: '#/components/schemas/Page'
-      type: object
-      required:
-        - properties
-      title: PageChunk
-    SectionChunk:
-      properties:
-        label:
-          type: string
-          enum: [SECTION]
-          title: Label
-          default: SECTION
-        properties:
-          $ref: '#/components/schemas/Section'
-      type: object
-      required:
-        - properties
-      title: SectionChunk
-    TableChunk:
-      properties:
-        label:
-          type: string
-          enum: [TABLE]
-          title: Label
-          default: TABLE
-        properties:
-          $ref: '#/components/schemas/app__api__v3__payload__actions__chunking__Table'
-      type: object
-      required:
-        - properties
-      title: TableChunk
-    DiagramChunk:
-      properties:
-        label:
-          type: string
-          enum: [DIAGRAM]
-          title: Label
-          default: DIAGRAM
-        properties:
-          $ref: '#/components/schemas/Diagram'
-      type: object
-      required:
-        - properties
-      title: DiagramChunk
-    QAChunk:
-      properties:
-        label:
-          type: string
-          enum: [QA]
-          title: Label
-          default: QA
-        properties:
-          $ref: '#/components/schemas/QA'
-      type: object
-      required:
-        - properties
-      title: QAChunk
-    UnstructuredChunk:
-      properties:
-        label:
-          type: string
-          enum: [FREETEXT]
-          title: Label
-          default: FREETEXT
-        properties:
-          $ref: '#/components/schemas/FreeText'
-      type: object
-      required:
-        - properties
-      title: UnstructuredChunk
-      
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/DocumentComponent'
+              - $ref: '#/components/schemas/TOCComponent'
+              - $ref: '#/components/schemas/PageComponent'
+              - $ref: '#/components/schemas/SectionComponent'
+              - $ref: '#/components/schemas/TableComponent'
+              - $ref: '#/components/schemas/DiagramComponent'
+              - $ref: '#/components/schemas/UnstructuredComponent'
+              - $ref: '#/components/schemas/FAQComponent'
+              - $ref: '#/components/schemas/DictionaryComponent'
+            discriminator:
+              propertyName: label
+              mapping:
+                DOCUMENT: '#/components/schemas/DocumentComponent'
+                TABLEOFCONTENTS: '#/components/schemas/TOCComponent'
+                PAGE: '#/components/schemas/PageComponent'
+                SECTION: '#/components/schemas/SectionComponent'
+                TABLE: '#/components/schemas/TableComponent'
+                DIAGRAM: '#/components/schemas/DiagramComponent'
+                FREETEXT: '#/components/schemas/UnstructuredComponent'
+                FAQ: '#/components/schemas/FAQComponent'
+                DICTIONARY: '#/components/schemas/DictionaryComponent'
+          title: Items
+          description: Chunks in document order (v3.3 chunking component format)
+      title: ReferenceChunksResponse
+      description: |-
+        Response for GET /references/{reference_id}/chunks. Each element in
+        ``items`` matches the component shape returned by
+        POST /api/v3.3/actions/chunking/.
     DocumentComponent:
       properties:
         label:
@@ -748,34 +900,6 @@ components:
         - others
       default: structured
       title: DocumentType
-    ChunkingInputType:
-      type: string
-      enum:
-        - plain_text
-        - json
-      title: ChunkingInputType
-    ChunkingPayloadRequest:
-      properties:
-        text:
-          anyOf:
-            - type: object
-            - type: string
-          title: Text
-        company_name:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Company Name
-        doc_name:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Doc Name
-      type: object
-      required:
-        - text
-      title: ChunkingPayloadRequest
-      
     TOCComponent:
       properties:
         label:
@@ -789,6 +913,27 @@ components:
       required:
         - properties
       title: TOCComponent
+    TOC:
+      properties:
+        companyName:
+          type: string
+          title: Companyname
+        parentDocName:
+          type: string
+          title: Parentdocname
+        text:
+          type: string
+          title: Text
+          default: ''
+        uniIdx:
+          type: string
+          title: Uniidx
+          default: ''
+      type: object
+      required:
+        - companyName
+        - parentDocName
+      title: TOC
     PageComponent:
       properties:
         label:
@@ -802,6 +947,50 @@ components:
       required:
         - properties
       title: PageComponent
+    kncore__structs__datamodel__Page:
+      properties:
+        page_idx:
+          type: integer
+          title: Page Idx
+          default: 0
+        text:
+          type: string
+          title: Text
+          default: ''
+        reference_id:
+          type: string
+          title: Reference Id
+          default: ''
+        doc_name:
+          type: string
+          title: Doc Name
+          default: ''
+        page_number:
+          type: string
+          title: Page Number
+          default: ''
+        page_name:
+          type: string
+          title: Page Name
+          default: ''
+        page_header:
+          type: string
+          title: Page Header
+          default: ''
+        page_footer:
+          type: string
+          title: Page Footer
+          default: ''
+        title:
+          type: string
+          title: Title
+          default: ''
+        unique_idx:
+          type: string
+          title: Unique Idx
+          default: ''
+      type: object
+      title: Page
     SectionComponent:
       properties:
         label:
@@ -815,127 +1004,6 @@ components:
       required:
         - properties
       title: SectionComponent
-    TableComponent:
-      properties:
-        label:
-          type: string
-          enum: [TABLE]
-          title: Label
-          default: TABLE
-        properties:
-          $ref: '#/components/schemas/kncore__structs__datamodel__Table'
-      type: object
-      required:
-        - properties
-      title: TableComponent
-    DiagramComponent:
-      properties:
-        label:
-          type: string
-          enum: [DIAGRAM]
-          title: Label
-          default: DIAGRAM
-        properties:
-          $ref: '#/components/schemas/Diagram'
-      type: object
-      required:
-        - properties
-      title: DiagramComponent
-    UnstructuredComponent:
-      properties:
-        label:
-          type: string
-          enum: [FREETEXT]
-          title: Label
-          default: FREETEXT
-        properties:
-          $ref: '#/components/schemas/kncore__structs__datamodel__Section'
-      type: object
-      required:
-        - properties
-      title: UnstructuredComponent
-    FAQComponent:
-      properties:
-        label:
-          type: string
-          enum: [FAQ]
-          title: Label
-          default: FAQ
-        properties:
-          $ref: '#/components/schemas/FAQ'
-      type: object
-      required:
-        - properties
-      title: FAQComponent
-    DictionaryComponent:
-      properties:
-        label:
-          type: string
-          enum: [DICTIONARY]
-          title: Label
-          default: DICTIONARY
-        properties:
-          $ref: '#/components/schemas/Dictionary'
-      type: object
-      required:
-        - properties
-      title: DictionaryComponent
-    
-    
-    
-    
-      
-    app__api__v3__payload__actions__chunking__Document:
-      properties:
-        companyName:
-          type: string
-          title: Companyname
-        docName:
-          type: string
-          title: Docname
-        docType:
-          type: string
-          title: Doctype
-          default: structured
-      type: object
-      required:
-        - companyName
-        - docName
-      title: Document
-    app__api__v3__payload__actions__chunking__Table:
-      properties:
-        companyName:
-          type: string
-          title: Companyname
-        parentDocName:
-          type: string
-          title: Parentdocname
-        parentPageIdx:
-          type: integer
-          title: Parentpageidx
-        tableIdx:
-          type: integer
-          title: Tableidx
-        text:
-          type: string
-          title: Text
-          default: ''
-        uniIdx:
-          type: string
-          title: Uniidx
-          default: ''
-        vectordbIds:
-          items:
-            type: string
-          type: array
-          title: Vectordbids
-      type: object
-      required:
-        - companyName
-        - parentDocName
-        - parentPageIdx
-        - tableIdx
-      title: Table
     kncore__structs__datamodel__Section:
       properties:
         reference_id:
@@ -989,6 +1057,19 @@ components:
           title: Vectordb Ids
       type: object
       title: Section
+    TableComponent:
+      properties:
+        label:
+          type: string
+          enum: [TABLE]
+          title: Label
+          default: TABLE
+        properties:
+          $ref: '#/components/schemas/kncore__structs__datamodel__Table'
+      type: object
+      required:
+        - properties
+      title: TableComponent
     kncore__structs__datamodel__Table:
       properties:
         reference_id:
@@ -1023,20 +1104,20 @@ components:
         - page_idx
         - table_idx
       title: Table
-
-      
-    Body_extract_ai_v3.3_actions_document_extract__post:
+    DiagramComponent:
       properties:
-        file:
+        label:
           type: string
-          format: binary
-          title: File
+          enum: [DIAGRAM]
+          title: Label
+          default: DIAGRAM
+        properties:
+          $ref: '#/components/schemas/Diagram'
       type: object
       required:
-        - file
-      title: Body_extract_ai_v3.3_actions_document_extract__post
-      
-    TOC:
+        - properties
+      title: DiagramComponent
+    Diagram:
       properties:
         companyName:
           type: string
@@ -1044,164 +1125,63 @@ components:
         parentDocName:
           type: string
           title: Parentdocname
+        parentPageIdx:
+          type: integer
+          title: Parentpageidx
+        diagramIdx:
+          type: integer
+          title: Diagramidx
         text:
           type: string
           title: Text
+          default: ''
+        imagePath:
+          type: string
+          title: Imagepath
           default: ''
         uniIdx:
           type: string
           title: Uniidx
           default: ''
+        vectordbIds:
+          items:
+            type: string
+          type: array
+          title: Vectordbids
+          default: []
       type: object
       required:
         - companyName
         - parentDocName
-      title: TOC
-    Page:
+        - parentPageIdx
+        - diagramIdx
+      title: Diagram
+    UnstructuredComponent:
       properties:
-        companyName:
+        label:
           type: string
-          title: Companyname
-        pageIdx:
-          type: integer
-          title: Pageidx
-          default: 0
-        parentDocName:
-          type: string
-          title: Parentdocname
-          default: ''
-        pageNumber:
-          type: string
-          title: Pagenumber
-          default: ''
-        pageName:
-          type: string
-          title: Pagename
-          default: ''
-        pageHeader:
-          type: string
-          title: Pageheader
-          default: ''
-        pageFooter:
-          type: string
-          title: Pagefooter
-          default: ''
-        title:
-          type: string
-          title: Title
-          default: ''
-        uniIdx:
-          type: string
-          title: Uniidx
-          default: ''
+          enum: [FREETEXT]
+          title: Label
+          default: FREETEXT
+        properties:
+          $ref: '#/components/schemas/kncore__structs__datamodel__Section'
       type: object
       required:
-        - companyName
-      title: Page
-    Section:
+        - properties
+      title: UnstructuredComponent
+    FAQComponent:
       properties:
-        companyName:
+        label:
           type: string
-          title: Companyname
-        parentDocName:
-          type: string
-          title: Parentdocname
-          default: ''
-        parentPageIdx:
-          type: integer
-          title: Parentpageidx
-          default: 0
-        sectionIdx:
-          type: integer
-          title: Sectionidx
-          default: 0
-        currentIndex:
-          type: integer
-          title: Currentindex
-          default: 0
-        sectionHeading:
-          type: string
-          title: Sectionheading
-          default: ''
-        title:
-          type: string
-          title: Title
-          default: ''
-        text:
-          type: string
-          title: Text
-          default: ''
-        pageHeader:
-          type: string
-          title: Pageheader
-          default: ''
-        pageFooter:
-          type: string
-          title: Pagefooter
-          default: ''
-        uniIdx:
-          type: string
-          title: Uniidx
-          default: ''
-        vectordbIds:
-          items:
-            type: string
-          type: array
-          title: Vectordbids
+          enum: [FAQ]
+          title: Label
+          default: FAQ
+        properties:
+          $ref: '#/components/schemas/FAQ'
       type: object
       required:
-        - companyName
-      title: Section
-    QA:
-      properties:
-        companyName:
-          type: string
-          title: Companyname
-        qaIdx:
-          type: integer
-          title: Qaidx
-        text:
-          type: string
-          title: Text
-          default: ''
-        embedding:
-          $ref: '#/components/schemas/Embedding'
-        uniIdx:
-          type: string
-          title: Uniidx
-          default: ''
-        vectordbIds:
-          items:
-            type: string
-          type: array
-          title: Vectordbids
-      type: object
-      required:
-        - companyName
-        - qaIdx
-        - embedding
-      title: QA
-    FreeText:
-      properties:
-        companyName:
-          type: string
-          title: Companyname
-        metadata:
-          type: object
-          title: Metadata
-        text:
-          type: string
-          title: Text
-      type: object
-      required:
-        - companyName
-        - metadata
-        - text
-      title: FreeText
-    Embedding:
-      items:
-        type: number
-      type: array
+        - properties
+      title: FAQComponent
     FAQ:
       properties:
         faq_idx:
@@ -1227,6 +1207,19 @@ components:
       required:
         - faq_idx
       title: FAQ
+    DictionaryComponent:
+      properties:
+        label:
+          type: string
+          enum: [DICTIONARY]
+          title: Label
+          default: DICTIONARY
+        properties:
+          $ref: '#/components/schemas/Dictionary'
+      type: object
+      required:
+        - properties
+      title: DictionaryComponent
     Dictionary:
       properties:
         dictionary_idx:
@@ -1252,595 +1245,829 @@ components:
       required:
         - dictionary_idx
       title: Dictionary
-    
-    
-      
-    ExtractorResponseType:
+    Role:
       type: string
       enum:
-        - json
-        - markdown
-      title: ExtractorResponseType
-    ReferencesAdaptiveResponse:
-      properties:
-        spec_type:
-          type: string
-          enum: [references] 
-          title: Spec Type
-          default: references
-        elements:
-          items:
-            oneOf:
-              - $ref: '#/components/schemas/kncore__extractors__models__Table'
-              - $ref: '#/components/schemas/Figure'
-              - $ref: '#/components/schemas/kncore__extractors__models__Section'
-            discriminator:
-              propertyName: role
-              mapping:
-                figure: '#/components/schemas/Figure'
-                section: '#/components/schemas/kncore__extractors__models__Section'
-                table: '#/components/schemas/kncore__extractors__models__Table'
-          type: array
-          title: Elements
-        pages:
-          items:
-            $ref: '#/components/schemas/kncore__extractors__models__Page'
-          type: array
-          title: Pages
-        dynamic_fields:
-          $ref: '#/components/schemas/ReferencesDynamicFields'
-        filename:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Filename
-        fileformat:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Fileformat
+        - SystemAdmin
+        - Admin
+        - User
+      title: Role
+    Language:
+      type: string
+      enum:
+        - auto-detect
+        - ja
+        - en
+      title: Language
+    ChatRole:
+      type: string
+      enum:
+        - user
+        - assistant
+      title: ChatRole
+    ChatModel:
       type: object
       required:
-        - elements
-        - pages
-        - dynamic_fields
-      title: ReferencesAdaptiveResponse
-    PowerPointAdaptiveResponse:
+        - name
+        - deployment_name
+        - context_length
       properties:
-        spec_type:
+        name:
           type: string
-          enum: [powerpoint]
-          title: Spec Type
-          default: powerpoint
-        elements:
-          items:
-            $ref: '#/components/schemas/Slide'
-          type: array
-          title: Elements
-        pages:
-          items:
-            $ref: '#/components/schemas/kncore__extractors__models__Page'
-          type: array
-          title: Pages
-        dynamic_fields:
-          $ref: '#/components/schemas/PowerPointDynamicFields'
-        filename:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Filename
-        fileformat:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Fileformat
+          title: Name
+        deployment_name:
+          type: string
+          title: Deployment Name
+        context_length:
+          type: integer
+          title: Context Length
+      title: ChatModel
+    EmbeddingModel:
       type: object
       required:
-        - elements
-        - pages
-        - dynamic_fields
-      title: PowerPointAdaptiveResponse
-    ImageAdaptiveResponse:
+        - name
+        - model_name
+        - deployment_name
+        - embedding_size
       properties:
-        spec_type:
+        name:
           type: string
-          enum: [image]
-          title: Spec Type
-          default: image
-        elements:
-          items:
-            $ref: '#/components/schemas/Figure'
-          type: array
-          title: Elements
-        pages:
-          items:
-            $ref: '#/components/schemas/kncore__extractors__models__Page'
-          type: array
-          title: Pages
-        dynamic_fields:
-          $ref: '#/components/schemas/ImageDynamicFields'
-        filename:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Filename
-        fileformat:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Fileformat
+          title: Name
+        model_name:
+          type: string
+          title: Model Name
+        deployment_name:
+          type: string
+          title: Deployment Name
+        embedding_size:
+          type: integer
+          title: Embedding Size
+      title: EmbeddingModel
+    ChatConfig:
       type: object
       required:
-        - elements
-        - pages
-        - dynamic_fields
-      title: ImageAdaptiveResponse
-    StructuredResponseMarkdown:
-      additionalProperties:
-        type: string
+        - stream
+        - temperature
+      properties:
+        chat_model:
+          anyOf:
+            - $ref: '#/components/schemas/ChatModel'
+            - nullable: true
+        embedding_model:
+          anyOf:
+            - $ref: '#/components/schemas/EmbeddingModel'
+            - nullable: true
+        stream:
+          type: boolean
+          title: Stream
+        temperature:
+          type: number
+          title: Temperature
+      title: ChatConfig
+    MessageCreate3.2:
       type: object
-    ErrorResponse:
+      required:
+        - content
+      properties:
+        config:
+          anyOf:
+            - $ref: '#/components/schemas/ChatConfig'
+            - nullable: true
+        content:
+          type: string
+          minLength: 1
+          title: Content
+        parent_id:
+          anyOf:
+            - type: string
+            - type: string
+              format: uuid
+            - nullable: true
+          title: Parent Id
+        attachment_ids:
+          type: array
+          items:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+          maxItems: 10
+          title: Attachment Ids
+          default: []
+        collection_ids:
+          type: array
+          items:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+          title: Collection Ids
+          description: |
+            Optional. SR 3.2 requires explicit collection_ids. SR 3.4 when omitted
+            or empty uses assistant-bound collections (assigned to chat's assistant).
+          default: []
+        reference_ids:
+          type: array
+          items:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+          title: Reference Ids
+          default: []
+      title: MessageCreate3.2
+    SearchMode:
+      type: string
+      enum:
+        - internal_search
+        - web_search
+      title: SearchMode
+      description: |
+        A single retrieval strategy. `internal_search` queries the configured
+        internal collections; `web_search` queries the web.
+    MessageCreate3.4:
+      allOf:
+        - $ref: '#/components/schemas/MessageCreate3.2'
+        - type: object
+          properties:
+            search_mode:
+              type: array
+              items:
+                $ref: '#/components/schemas/SearchMode'
+              title: Search Mode
+              description: |
+                Optional list of retrieval strategies. When the list is empty
+                or the field is null/omitted, the server SHALL fall back to
+                `["internal_search"]`.
+              default:
+                - internal_search
+      title: MessageCreate3.4
+    ChatWithMessagesResponse3.2:
+      title: ChatWithMessagesResponse
+      type: object
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+        - created_by
+        - references
+        - messages
+      properties:
+        id:
+          type: string
+          title: Id
+        title:
+          type: string
+          title: Title
+        group_id:
+          anyOf:
+            - type: string
+          nullable: true
+          title: Group Id
+        assistant_id:
+          anyOf:
+            - type: string
+          nullable: true
+          title: Assistant Id
+        assistant_name:
+          anyOf:
+            - type: string
+          nullable: true
+          title: Assistant Name
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserResponse'
+          nullable: true
+        updated_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserResponse'
+          nullable: true
+        references:
+          type: array
+          title: References
+          items:
+            $ref: '#/components/schemas/ReferenceResponse3.2'
+        messages:
+          type: array
+          title: Messages
+          items:
+            $ref: '#/components/schemas/MessageResponse'
+    MessageResponse:
+      type: object
+      required:
+        - content
+        - role
+        - id
+        - created_at
+        - updated_at
+      properties:
+        content:
+          type: string
+          title: Content
+        role:
+          $ref: '#/components/schemas/ChatRole'
+        parent_id:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Parent Id
+        feedback:
+          $ref: '#/components/schemas/UserFeedback'
+          default: neutral
+        id:
+          type: string
+          title: Id
+        attachments:
+          anyOf:
+            - items:
+                $ref: '#/components/schemas/AttachmentResponse'
+              type: array
+              nullable: true
+          title: Attachments
+        references:
+          anyOf:
+            - items:
+                $ref: '#/components/schemas/ReferenceResponse'
+              type: array
+              nullable: true
+          title: References
+        chunks:
+          anyOf:
+            - items:
+                $ref: '#/components/schemas/Chunk'
+              type: array
+              nullable: true
+          title: Chunks
+        mapping_evidence:
+          anyOf:
+            - additionalProperties:
+                type: string
+              type: object
+              nullable: true
+          title: Mapping Evidence
+        children:
+          items:
+            $ref: '#/components/schemas/ChildMessage'
+          type: array
+          title: Children
+          default: []
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      title: MessageResponse
+    MessageResponse3.4:
+      allOf:
+        - $ref: '#/components/schemas/MessageResponse'
+        - type: object
+          properties:
+            search_mode:
+              type: array
+              items:
+                $ref: '#/components/schemas/SearchMode'
+              title: Search Mode
+              description: |
+                Retrieval strategies used for this message. Falls back to
+                `["internal_search"]` when none were provided at creation.
+              default:
+                - internal_search
+      title: MessageResponse3.4
+    ChatWithMessagesResponse3.4:
+      title: ChatWithMessagesResponse3.4
+      type: object
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+        - created_by
+        - references
+        - messages
+      properties:
+        id:
+          type: string
+          title: Id
+        title:
+          type: string
+          title: Title
+        group_id:
+          anyOf:
+            - type: string
+          nullable: true
+          title: Group Id
+        assistant_id:
+          anyOf:
+            - type: string
+          nullable: true
+          title: Assistant Id
+        assistant_name:
+          anyOf:
+            - type: string
+          nullable: true
+          title: Assistant Name
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserResponse'
+          nullable: true
+        updated_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserResponse'
+          nullable: true
+        references:
+          type: array
+          title: References
+          items:
+            $ref: '#/components/schemas/ReferenceResponse3.2'
+        messages:
+          type: array
+          title: Messages
+          items:
+            $ref: '#/components/schemas/MessageResponse3.4'
+    ChildMessage:
+      type: object
+      required:
+        - id
+        - role
+        - content
+      properties:
+        id:
+          type: string
+          title: Id
+        role:
+          $ref: '#/components/schemas/ChatRole'
+        content:
+          type: string
+          title: Content
+      title: ChildMessage
+    Chunk:
+      type: object
+      required:
+        - chunk_id
+        - text
+        - metadata
+      properties:
+        chunk_id:
+          type: string
+          title: Chunk Id
+        text:
+          type: string
+          title: Text
+        metadata:
+          $ref: '#/components/schemas/ChunkMeta'
+      title: Chunk
+    ChunkMeta:
+      type: object
+      required:
+        - doc_name
+      properties:
+        doc_name:
+          type: string
+          title: Doc Name
+        image_path:
+          type: string
+          title: Image Path
+          default: ''
+        content_type:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Content Type
+        parentPageIdx:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Parentpageidx
+        pageIdx:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Pageidx
+      title: ChunkMeta
+    AttachmentResponse:
+      type: object
+      required:
+        - id
+        - name
+        - content_type
+        - extension
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        content_type:
+          type: string
+          title: Content Type
+        size:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Size
+        uri:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Uri
+        extension:
+          type: string
+          title: Extension
+      title: AttachmentResponse
+    UserFeedback:
+      type: string
+      enum:
+        - like
+        - dislike
+        - neutral
+      title: UserFeedback
+    ReferenceResponse:
+      type: object
+      required:
+        - id
+        - name
+        - content_type
+        - extension
+        - status
+        - collections
+        - created_at
+        - updated_at
+        - created_by
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        content_type:
+          type: string
+          title: Content Type
+        size:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Size
+        uri:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Uri
+        extension:
+          type: string
+          title: Extension
+        status:
+          $ref: '#/components/schemas/ReferenceStatus'
+        collections:
+          items:
+            $ref: '#/components/schemas/CollectionMinimal'
+          type: array
+          title: Collections
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+        updated_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+      title: ReferenceResponse
+    ReferenceResponse3.2:
+      type: object
+      required:
+        - id
+        - name
+        - content_type
+        - extension
+        - status
+        - attribute
+        - category
+        - collections
+        - created_at
+        - updated_at
+        - created_by
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        content_type:
+          type: string
+          title: Content Type
+        size:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Size
+        uri:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Uri
+        extension:
+          type: string
+          title: Extension
+        status:
+          $ref: '#/components/schemas/ReferenceStatus'
+        attribute:
+          $ref: '#/components/schemas/ReferenceAttribute'
+        category:
+          $ref: '#/components/schemas/ReferenceCategory'
+        collections:
+          items:
+            $ref: '#/components/schemas/CollectionMinimal'
+          type: array
+          title: Collections
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+        updated_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+      title: ReferenceResponse
+    ReferenceStatus:
+      type: string
+      enum:
+        - created
+        - indexing
+        - indexed
+        - error
+      title: ReferenceStatus
+    ReferenceAttribute:
+      type: string
+      enum:
+        - basic
+        - faq
+        - dictionary
+      title: ReferenceAttribute
+    ReferenceCategory:
+      type: string
+      enum:
+        - reference
+        - supplemental
+      title: ReferenceCategory
+    UserMinimal:
+      type: object
+      required:
+        - id
+        - username
+        - display_name
+      properties:
+        id:
+          type: string
+          title: Id
+        username:
+          type: string
+          title: Username
+        display_name:
+          type: string
+          title: Display Name
+      title: UserMinimal
+    CollectionMinimal:
+      type: object
+      required:
+        - name
+        - id
+      properties:
+        name:
+          type: string
+          title: Name
+        id:
+          type: string
+          title: Id
+      title: CollectionMinimal
+    RoleChangePayload:
+      type: object
+      required:
+        - new_role
+      properties:
+        new_role:
+          $ref: '#/components/schemas/Role'
+      title: RoleChangePayload
+      description: Payload for changing a user's role.
+    GroupResponse:
+      type: object
+      required:
+        - name
+        - id
+      properties:
+        name:
+          type: string
+          title: Name
+        id:
+          type: string
+          title: Id
+      title: GroupResponse
+    Indexing:
+      type: object
+      required:
+        - chunk_size
+      properties:
+        chunk_size:
+          type: integer
+          exclusiveMinimum: 0
+          title: Chunk Size
+      title: Indexing
+    LLM:
+      type: object
+      required:
+        - language
+      properties:
+        language:
+          $ref: '#/components/schemas/Language'
+      title: LLM
+    UserAISettingsResponse:
+      type: object
+      properties:
+        indexing:
+          anyOf:
+            - $ref: '#/components/schemas/Indexing'
+            - nullable: true
+        llm:
+          anyOf:
+            - $ref: '#/components/schemas/LLM'
+            - nullable: true
+      title: UserAISettingsResponse
+    app__api__v3__payload__users__UserResponse:
+      type: object
+      required:
+        - id
+        - username
+        - last_name
+        - first_name
+        - display_name
+        - role
+        - language
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          title: Id
+        username:
+          type: string
+          title: Username
+        last_name:
+          anyOf:
+            - type: string
+            - nullable: true
+          title: Last Name
+        first_name:
+          type: string
+          title: First Name
+        display_name:
+          type: string
+          title: Display Name
+        role:
+          $ref: '#/components/schemas/Role'
+        language:
+          $ref: '#/components/schemas/Language'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        last_login:
+          anyOf:
+            - type: string
+              format: date-time
+            - nullable: true
+          title: Last Login
+        force_password_change:
+          type: boolean
+          title: Force Password Change
+          default: false
+        ai_settings:
+          anyOf:
+            - $ref: '#/components/schemas/UserAISettingsResponse'
+            - nullable: true
+      title: UserResponse
+    app__api__v3__payload__users__UserResponseWithGroup:
+      type: object
+      required:
+        - id
+        - username
+        - last_name
+        - first_name
+        - display_name
+        - role
+        - language
+        - created_at
+        - updated_at
+        - groups
+      properties:
+        id:
+          type: string
+          title: Id
+        username:
+          type: string
+          title: Username
+        last_name:
+          anyOf:
+            - type: string
+            - nullable: true
+          title: Last Name
+        first_name:
+          type: string
+          title: First Name
+        display_name:
+          type: string
+          title: Display Name
+        role:
+          $ref: '#/components/schemas/Role'
+        language:
+          $ref: '#/components/schemas/Language'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        last_login:
+          anyOf:
+            - type: string
+              format: date-time
+            - nullable: true
+          title: Last Login
+        force_password_change:
+          type: boolean
+          title: Force Password Change
+          default: false
+        ai_settings:
+          anyOf:
+            - $ref: '#/components/schemas/UserAISettingsResponse'
+            - nullable: true
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupResponse'
+          title: Groups
+      title: UserResponseWithGroup
+    ErrorResponseWithCode:
       properties:
         message:
           type: string
           title: Message
+        code:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Code
       type: object
       required:
         - message
-      title: ErrorResponse
-    Figure:
-      properties:
-        page_idx:
-          type: integer
-          title: Page Idx
-        role:
-          type: string
-          enum: [figure]
-          title: Role
-          default: figure
-        global_idx:
-          type: integer
-          title: Global Idx
-        contents:
-          items:
-            type: string
-          type: array
-          title: Contents
-        attributes:
-          $ref: '#/components/schemas/Attributes'
-        embedded_texts:
-          items:
-            type: string
-          type: array
-          title: Embedded Texts
-        captions:
-          items:
-            type: string
-          type: array
-          title: Captions
-      type: object
-      required:
-        - page_idx
-        - global_idx
-      title: Figure
-    Attributes:
-      properties:
-        bounding_region:
-          anyOf:
-            - $ref: '#/components/schemas/BoundingBoxCoord'
-            - $ref: '#/components/schemas/BoundingBoxExcel'
-          nullable: true
-          title: Bounding Region
-        xpath:
-          anyOf:
-            - $ref: '#/components/schemas/XPath'
-          nullable: true
-        export_path:
-          anyOf:
-            - type: string
-              format: path
-              nullable: true
-          title: Export Path
-      type: object
-      title: Attributes
-    ReferencesDynamicFields:
-      properties:
-        xpaths:
-          $ref: '#/components/schemas/XPaths'
-        table_of_contents:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Table Of Contents
-        has_table:
-          type: boolean
-          title: Has Table
-          default: false
-      type: object
-      required:
-        - xpaths
-      title: ReferencesDynamicFields
-    Axis:
-      type: string
-      enum:
-        - page
-        - figure
-        - paragraph
-        - section
-        - table
-      title: Axis
-    XStep:
-      properties:
-        axis:
-          $ref: '#/components/schemas/Axis'
-        idx:
-          type: integer
-          title: Idx
-      type: object
-      required:
-        - axis
-        - idx
-      title: XStep
-    XPaths:
-      properties:
-        mp_pageidx_registry:
-          additionalProperties:
-            $ref: '#/components/schemas/XRegistry'
-          type: object
-          title: Mp Pageidx Registry
-      type: object
-      title: XPaths
-    XPath:
-      properties:
-        xsteps:
-          items:
-            $ref: '#/components/schemas/XStep'
-          type: array
-          minItems: 1
-          title: Xsteps
-        _page:
-          anyOf:
-            - $ref: '#/components/schemas/XStep'
-          nullable: true
-        _sections:
-          items:
-            $ref: '#/components/schemas/XStep'
-          type: array
-          title: Sections
-      type: object
-      title: XPath
-    XRegistry:
-      properties:
-        registry:
-          additionalProperties:
-            additionalProperties:
-              $ref: '#/components/schemas/XPath'
-            type: object
-          propertyNames:
-            $ref: '#/components/schemas/Axis'
-          type: object
-          title: Registry
-      type: object
-      title: XRegistry
-    Slide:
-      properties:
-        slide_idx:
-          type: integer
-          title: Slide Idx
-        export_path:
-          anyOf:
-            - type: string
-              format: path
-              nullable: true
-          title: Export Path
-        contents:
-          items:
-            type: string
-          type: array
-          title: Contents
-      type: object
-      required:
-        - slide_idx
-      title: Slide
-    PowerPointDynamicFields:
-      properties:
-        idx_metadata_slides:
-          items:
-            type: integer
-          type: array
-          title: Idx Metadata Slides
-        idx_di_slides:
-          items:
-            type: integer
-          type: array
-          title: Idx Di Slides
-      type: object
-      title: PowerPointDynamicFields
-    BoundingBoxCoord:
-      properties:
-        top:
-          anyOf:
-            - type: integer
-            - type: number
-          title: Top
-        left:
-          anyOf:
-            - type: integer
-            - type: number
-          title: Left
-        bottom:
-          anyOf:
-            - type: integer
-            - type: number
-          title: Bottom
-        right:
-          anyOf:
-            - type: integer
-            - type: number
-          title: Right
-      type: object
-      required:
-        - top
-        - left
-        - bottom
-        - right
-      title: BoundingBoxCoord
-    BoundingBoxExcel:
-      properties:
-        top:
-          anyOf:
-            - type: integer
-            - type: number
-          title: Top
-        left:
-          anyOf:
-            - type: integer
-            - type: number
-          title: Left
-        bottom:
-          anyOf:
-            - type: integer
-            - type: number
-          title: Bottom
-        right:
-          anyOf:
-            - type: integer
-            - type: number
-          title: Right
-      type: object
-      required:
-        - top
-        - left
-        - bottom
-        - right
-      title: BoundingBoxExcel
-    ImageDynamicFields:
-      properties: {}
-      type: object
-      title: ImageDynamicFields
-    Cell:
-      properties:
-        row_indices:
-          items:
-            type: integer
-          type: array
-          title: Row Indices
-        col_indices:
-          items:
-            type: integer
-          type: array
-          title: Col Indices
-        is_column_header:
-          type: boolean
-          title: Is Column Header
-          default: false
-        is_projected_row_header:
-          type: boolean
-          title: Is Projected Row Header
-          default: false
-        content:
-          type: string
-          title: Content
-          default: ''
-      type: object
-      required:
-        - row_indices
-        - col_indices
-      title: Cell
-      
-    kncore__extractors__models__Table:
-      properties:
-        page_idx:
-          type: integer
-          title: Page Idx
-        role:
-          type: string
-          enum: [table]
-          title: Role
-          default: table
-        global_idx:
-          type: integer
-          title: Global Idx
-        contents:
-          items:
-            type: string
-          type: array
-          title: Contents
-        attributes:
-          $ref: '#/components/schemas/Attributes'
-        num_column:
-          type: integer
-          title: Num Column
-        num_row:
-          type: integer
-          title: Num Row
-        cells:
-          items:
-            $ref: '#/components/schemas/Cell'
-          type: array
-          title: Cells
-        captions:
-          items:
-            type: string
-          type: array
-          title: Captions
-      type: object
-      required:
-        - page_idx
-        - global_idx
-        - num_column
-        - num_row
-        - cells
-      title: Table
-    kncore__extractors__models__Page:
-      properties:
-        page_idx:
-          type: integer
-          minimum: 0
-          exclusiveMinimum: true
-          title: Page Idx
-        name:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Name
-        width:
-          anyOf:
-            - type: number
-              nullable: true
-          title: Width
-        height:
-          anyOf:
-            - type: number
-              nullable: true
-          title: Height
-        titles:
-          items:
-            type: string
-          type: array
-          title: Titles
-        headers:
-          items:
-            type: string
-          type: array
-          title: Headers
-        footers:
-          items:
-            type: string
-          type: array
-          title: Footers
-        contents:
-          items:
-            type: string
-          type: array
-          title: Contents
-        footnotes:
-          items:
-            type: string
-          type: array
-          title: Footnotes
-        page_numbers:
-          items:
-            type: string
-          type: array
-          title: Page Numbers
-        section_headings:
-          additionalProperties:
-            type: string
-          type: object
-          title: Section Headings
-        attributes:
-          $ref: '#/components/schemas/Attributes'
-      type: object
-      required:
-        - page_idx
-      title: Page
-    kncore__extractors__models__Section:
-      properties:
-        page_idx:
-          type: integer
-          title: Page Idx
-        role:
-          type: string
-          enum: [section]
-          title: Role
-          default: section
-        global_idx:
-          type: integer
-          title: Global Idx
-        contents:
-          items:
-            type: string
-          type: array
-          title: Contents
-        attributes:
-          $ref: '#/components/schemas/Attributes'
-        paragraphs:
-          items:
-            type: string
-          type: array
-          title: Paragraphs
-      type: object
-      required:
-        - page_idx
-        - global_idx
-      title: Section
-    kncore__structs__datamodel__Page:
-      properties:
-        page_idx:
-          type: integer
-          title: Page Idx
-          default: 0
-        text:
-          type: string
-          title: Text
-          default: ''
-        reference_id:
-          type: string
-          title: Reference Id
-          default: ''
-        doc_name:
-          type: string
-          title: Doc Name
-          default: ''
-        page_number:
-          type: string
-          title: Page Number
-          default: ''
-        page_name:
-          type: string
-          title: Page Name
-          default: ''
-        page_header:
-          type: string
-          title: Page Header
-          default: ''
-        page_footer:
-          type: string
-          title: Page Footer
-          default: ''
-        title:
-          type: string
-          title: Title
-          default: ''
-        unique_idx:
-          type: string
-          title: Unique Idx
-          default: ''
-      type: object
-      title: Page
-
+      title: ErrorResponseWithCode
   securitySchemes:
     MyHTTPBearer:
       type: http
       description: |
-
-        Bearer Authentication, see more at [the official documentation](https://swagger.io/docs/specification/authentication/bearer-authentication/).
-
-        The bearer token could be retrieved upon successfully logging in at [/api/v3/auth/login/](/docs#/auth/login_api_v3_auth_login__post).
-
-        Follow these steps:
-        - login at [POST /api/v3/auth/login/](/docs#/auth/login_api_v3_auth_login__post).
-        - retrieve the token from the `access_token` field.
-        - paste the token here, then `Authorize`.
+        Bearer authentication. Obtain the token via the auth login endpoint,
+        then send it in the Authorization header as Bearer {token}.
       scheme: bearer
+
