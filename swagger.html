@@ -1,0 +1,40 @@
+<!-- HTML for static distribution bundle build -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Swagger UI</title>
+    <link rel="stylesheet" type="text/css" href="dist/swagger-ui.css" />
+    <link rel="stylesheet" type="text/css" href="dist/index.css" />
+    <link rel="icon" type="image/png" href="dist/favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="dist/favicon-16x16.png" sizes="16x16" />
+  </head>
+
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="dist/swagger-ui-bundle.js" charset="UTF-8"> </script>
+    <script src="dist/swagger-ui-standalone-preset.js" charset="UTF-8"> </script>
+    <script src="dist/swagger-initializer.js" charset="UTF-8"> </script>
+    <script>
+      // Override window.onload set by swagger-initializer.js to support
+      // the ?url= query parameter for selecting which YAML spec to load.
+      window.onload = function () {
+        var params = new URLSearchParams(window.location.search);
+        var yamlUrl = params.get('url') || 'swagger.yaml';
+        window.ui = SwaggerUIBundle({
+          url: yamlUrl,
+          dom_id: '#swagger-ui',
+          deepLinking: true,
+          presets: [
+            SwaggerUIBundle.presets.apis,
+            SwaggerUIStandalonePreset
+          ],
+          plugins: [
+            SwaggerUIBundle.plugins.DownloadUrl
+          ],
+          layout: 'StandaloneLayout'
+        });
+      };
+    </script>
+  </body>
+</html>

@@ -1,0 +1,34 @@
+[
+  {
+    "id": "sr-3.4",
+    "title": "Super RAG API — SR 3.4",
+    "version": "v3.4.0",
+    "badge": "Latest",
+    "file": "SR-3.4-CwDTCAE.yaml",
+    "description": "Latest release. Assistant discovery, image retrieval, and reference chunks. Introduces /api/v3.4/ endpoints with assistant-bound collection resolution."
+  },
+  {
+    "id": "sr-3.3",
+    "title": "Super RAG API — SR 3.3",
+    "version": "v2.0.0",
+    "badge": "Data Processing",
+    "file": "SR-3.3.yaml",
+    "description": "Data Processing API — document chunking and parsing utilities. Endpoints under /api/v3/actions/ for breaking references into structured chunks."
+  },
+  {
+    "id": "sr-3.2",
+    "title": "Super RAG API — SR 3.2",
+    "version": "v3.1.0",
+    "badge": null,
+    "file": "SR-3.2.yaml",
+    "description": "Enhanced chat API with explicit collection management. Client must pass collection_ids in each request. Endpoints under /api/v3.2/."
+  },
+  {
+    "id": "sr-3.0",
+    "title": "Super RAG API — SR 3.0",
+    "version": "v2.0.0",
+    "badge": null,
+    "file": "SR-3.0.yaml",
+    "description": "Full Super RAG API — authentication, chat, collections, and document management. 39 endpoints covering the complete /api/v3/ surface."
+  }
+]
