@@ -1,0 +1,4207 @@
+openapi: 3.0.0
+info:
+  title: Super RAG API
+  description: |
+
+    # API Specification
+
+    ## Status Codes
+
+    APIs return status codes based on the resChatult. Below are the status codes and their meanings.
+
+    ### Response Codes for Successful Execution
+
+    If the process finishes without any issues, the response will have one of the following status codes:
+
+    | HTTP Status Code | Status Name | Description |
+    | --- | --- | --- |
+    | 200 | OK | The request was successful. |
+    | 201 | Created | The request was successful, and a new resource was created. |
+    | 204 | No Content | The request was successful, but there is no content to return. |
+
+    ### Response Codes for Client Errors
+
+    The following table lists the response codes for errors caused by client-side issues, such as invalid request data.
+
+    | HTTP Status Code | Status Name | Description |
+    | --- | --- | --- |
+    | 400 | Bad Request | The request is invalid or malformed. |
+    | 403 | Forbidden | The request is authenticated but lacks the necessary permissions. |
+    | 404 | Not Found | The specified resource could not be found. |
+    | 405 | Method Not Allowed | The request method (GET, POST, PUT, PATCH, DELETE) is not supported for this endpoint. |
+    | 409 | Conflict | The specified resource already exists. |
+    | 422 | Unprocessable Entity | The request is well-formed but contains invalid data. |
+
+    ### Response Codes for Server Errors
+
+    The following table lists the response codes for errors caused by server-side issues.
+
+    | HTTP Status Code | Status Name | Description |
+    | --- | --- | --- |
+    | 500 | Internal Server Error | The server encountered an unexpected condition that prevented it from fulfilling the request. |
+  version: 3.1.0
+paths:
+
+  /api/v3/chats/:
+    post:
+      tags:
+        - Chat endpoints 3.0
+      summary: Create Chat
+      description: Create a new conversation
+      operationId: create_chat_api_v3_chats__post
+      security:
+        - MyHTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              examples:
+                Invalid Group Error:
+                  summary: Invalid Group Error
+                  value:
+                    message: group {group_id} deleted or access denied
+                    code: InvalidGroupError
+                Invalid References Error:
+                  summary: Invalid References Error
+                  value:
+                    message: references {reference_ids} deleted or access denied
+                    code: InvalidReferencesError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+    get:
+      tags:
+        - Chat endpoints 3.0
+      summary: Get Chats
+      description: Retrieve all user conversations
+      operationId: get_chats_api_v3_chats__get
+      security:
+        - MyHTTPBearer: []
+      parameters:
+        - name: sort
+          in: query
+          required: false
+          schema:
+            enum:
+              - id
+              - created_at
+              - title
+              - '-id'
+              - '-created_at'
+              - '-title'
+            type: string
+            default: id
+            title: Sort
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            title: Skip
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+            title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatList'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+  /api/v3/chats/{chat_id}/:
+    put:
+      tags:
+        - Chat endpoints 3.0
+      summary: Update Chat
+      description: Rename a conversation
+      operationId: update_chat_api_v3_chats__chat_id___put
+      security:
+        - MyHTTPBearer: []
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Chat Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: chat {chat_id} not found
+                code: ChatNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '422':
+          content:
+            application/json:
+              examples:
+                ValidationError:
+                  value:
+                    message: 'body.field1.field2: field required, ...'
+                    code: ValidationError
+                InvalidReferencesError:
+                  value:
+                    message: 'reference {reference_ids} deleted or access denied'
+                    code: InvalidReferencesError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+    # delete:
+    #   tags:
+    #     - Chat endpoints 3.0
+    #   summary: Delete Chat
+    #   description: Delete a conversation and its messages
+    #   operationId: delete_chat_api_v3_chats__chat_id___delete
+    #   security:
+    #     - MyHTTPBearer: []
+    #   parameters:
+    #     - name: chat_id
+    #       in: path
+    #       required: true
+    #       schema:
+    #         anyOf:
+    #           - type: string
+    #           - type: string
+    #             format: uuid
+    #         title: Chat Id
+    #   responses:
+    #     '204':
+    #       description: Successful Response
+    #     '401':
+    #       content:
+    #         application/json:
+    #           example:
+    #             message: invalid access token
+    #             code: InvalidAccessTokenError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Unauthorized
+    #     '403':
+    #       content:
+    #         application/json:
+    #           example:
+    #             message: not authenticated
+    #             code: UnauthenticatedError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Forbidden
+    #     '404':
+    #       content:
+    #         application/json:
+    #           example:
+    #             message: chat {chat_id} not found
+    #             code: ChatNotFoundError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Not Found
+    #     '422':
+    #       content:
+    #         application/json:
+    #           example:
+    #             message: 'body.field1.field2: field required, ...'
+    #             code: ValidationError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Unprocessable Entity
+    get:
+      tags:
+        - Chat endpoints 3.0
+      summary: Get Chat
+      description: Retrieve conversation details, including messages and evidence
+      operationId: get_chat_api_v3_chats__chat_id___get
+      security:
+        - MyHTTPBearer: []
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Chat Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatWithMessagesResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: chat {chat_id} not found
+                code: ChatNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+  /api/v3/chats/{chat_id}/duplicate/:
+    post:
+      tags:
+        - Chat endpoints 3.0
+      summary: Duplicate Chat
+      description: Duplicate an existing conversation
+      operationId: duplicate_chat_api_v3_chats__chat_id__duplicate__post
+      security:
+        - MyHTTPBearer: []
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Chat Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: chat {chat_id} not found
+                code: ChatNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+  /api/v3/chats/{chat_id}/messages/:
+    post:
+      tags:
+        - Chat endpoints 3.0
+      summary: Create New Message
+      description: Add a new message to a conversation
+      operationId: create_new_message_api_v3_chats__chat_id__messages__post
+      security:
+        - MyHTTPBearer: []
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Chat Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageCreate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '400':
+          content:
+            application/json:
+              example:
+                message: 'invalid parent ID {parent_id}'
+                code: InvalidParentIDError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Bad Request
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              examples:
+                ChatNotFoundError:
+                  value:
+                    message: chat {chat_id} not found
+                    code: ChatNotFoundError
+                InvalidAttachmentsError:
+                  value:
+                    message: 'attachments {attachment_ids} not found or access denied'
+                    code: InvalidAttachmentsError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '413':
+          content:
+            application/json:
+              example:
+                message: 'max attachments file size exceeded, current size: {current_size}, max size: {max_size}'
+                code: MaxAttachmentsSizeExceededError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Request Entity Too Large
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+
+  /api/v3.2/chats/:
+    post:
+      tags:
+        - Chat endpoints 3.2
+      summary: Create Chat
+      description: Create a new conversation
+      operationId: create_chat_v3x_api_v3_chats__post
+      security:
+        - MyHTTPBearer: []
+        - MyHTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCreate3.2'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse3.2'
+              # example:
+              #   id: ea62f944c23f4190953afe528c26e3f9
+              #   title: NEW CHAT
+              #   group_id: 2a877cc34a5846dc858c662c35006e4e
+              #   assistant_id: 528d05a796ed421dbede97184c7c2a7c
+              #   assistant_name: test asst
+              #   created_at: '2025-02-11T04:02:15.225416Z'
+              #   updated_at: '2025-02-11T04:02:15.225416Z'
+              #   created_by:
+              #     id: d7a748e2b07d4e39aa75c9127bec6f34
+              #     username: groupadmin@example.com
+              #     last_name: admin
+              #     first_name: group
+              #     display_name: admin group
+              #     role: SystemAdmin
+              #     language: en
+              #     created_at: '2024-11-28T02:59:21.791682Z'
+              #     updated_at: '2025-02-11T04:00:49.038658Z'
+              #     last_login: '2025-02-11T04:00:49.037257Z'
+              #     force_password_change: false
+              #   references: []
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              examples:
+                No Permission Error:
+                  summary: No Permission Error
+                  value:
+                    message: not enough permission to perform this action
+                    code: NoPermissionError
+                Unauthenticated Error:
+                  summary: Unauthenticated Error
+                  value:
+                    message: not authenticated
+                    code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: assistant {assistant_id} not found
+                code: AssistantNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '422':
+          content:
+            application/json:
+              examples:
+                Invalid Group Error:
+                  summary: Invalid Group Error
+                  value:
+                    message: group {group_id} not found or access denied
+                    code: InvalidGroupError
+                Invalid References Error:
+                  summary: Invalid References Error
+                  value:
+                    message: references {reference_ids} not found or access denied
+                    code: InvalidReferencesError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+    get:
+      tags:
+        - Chat endpoints 3.2
+      summary: Get Chats
+      description: Retrieve all user conversations
+      operationId: get_chats_api_v3.2_chats__get
+      security:
+        - MyHTTPBearer: []
+      parameters:
+        - name: sort
+          in: query
+          required: false
+          schema:
+            enum:
+              - id
+              - created_at
+              - title
+              - '-id'
+              - '-created_at'
+              - '-title'
+            type: string
+            default: id
+            title: Sort
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            title: Skip
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 10
+            title: Limit
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatList3.2'
+              # example:
+              #   total: 3
+              #   items:
+              #     - id: 001cb7d102424f5ea5ff98f193e80b48
+              #       title: test chat 1
+              #       created_at: '2025-01-24T11:00:28.533490Z'
+              #       updated_at: '2025-01-24T11:00:28.533490Z'
+              #       created_by:
+              #         id: 8e06ece5f2db47dea45cfa4f96672b01
+              #         username: groupadmin@example.com
+              #         last_name: group
+              #         first_name: admin
+              #         display_name: admin group
+              #         role: Admin
+              #         language: en
+              #         created_at: '2025-01-16T07:35:13.320962Z'
+              #         updated_at: '2025-02-11T03:42:11.642983Z'
+              #         last_login: '2025-02-11T03:42:11.641753Z'
+              #         force_password_change: false
+              #       references:
+              #         - id: e3e7369d6f6f441699f991849003ba0e
+              #           name: test.jpg
+              #           content_type: image/jpeg
+              #           size: 81373
+              #           uri: data/references/e3e7369d-6f6f-4416-99f9-91849003ba0e.jpg
+              #           extension: jpg
+              #           status: indexed
+              #           attribute: basic
+              #           category: reference
+              #           collections:
+              #             - name: test collection
+              #               id: 40b9a423c47f4e0f99a36c344eb85e33
+              #           created_at: '2025-01-16T04:24:41.491119Z'
+              #           updated_at: '2025-01-16T04:24:59.855172Z'
+              #           created_by:
+              #             id: 0cffb34c4d9246af8bc99b525ad15304
+              #             username: testuser1@example.com
+              #             display_name: test user 1
+              #         - id: a0490e2ad5a9441b971b37f656407107
+              #           name: test.pdf
+              #           content_type: application/pdf
+              #           size: 18810
+              #           uri: data/references/a0490e2a-d5a9-441b-971b-37f656407107.pdf
+              #           extension: pdf
+              #           status: indexed
+              #           attribute: basic
+              #           category: reference
+              #           collections:
+              #             - name: test collection
+              #               id: 40b9a423c47f4e0f99a36c344eb85e33
+              #           created_at: '2025-01-16T04:24:40.076600Z'
+              #           updated_at: '2025-01-16T04:24:45.247331Z'
+              #           created_by:
+              #             id: 0cffb34c4d9246af8bc99b525ad15304
+              #             username: testuser1@example.com
+              #             display_name: test user 1
+              #     - id: 008f3217bbb345ff8a3d7be5f6c7d872
+              #       title: test chat 2
+              #       group_id: f8aa4ad2dbed40b6b4e1d3a8db12c1ca
+              #       assistant_name: assistant 1
+              #       created_at: '2025-01-23T03:19:00.556621Z'
+              #       updated_at: '2025-01-23T03:19:00.556621Z'
+              #       created_by:
+              #         id: 8e06ece5f2db47dea45cfa4f96672b01
+              #         username: groupadmin@example.com
+              #         last_name: group
+              #         first_name: admin
+              #         display_name: admin group
+              #         role: Admin
+              #         language: en
+              #         created_at: '2025-01-16T07:35:13.320962Z'
+              #         updated_at: '2025-02-11T03:42:11.642983Z'
+              #         last_login: '2025-02-11T03:42:11.641753Z'
+              #         force_password_change: false
+              #       references: []
+              #     - id: 00a949e2c583449f994c6b63f23abce4
+              #       title: test chat 3
+              #       created_at: '2025-02-04T04:54:12.836962Z'
+              #       updated_at: '2025-02-04T04:54:12.836962Z'
+              #       created_by:
+              #         id: 8e06ece5f2db47dea45cfa4f96672b01
+              #         username: groupadmin@example.com
+              #         last_name: group
+              #         first_name: admin
+              #         display_name: admin group
+              #         role: Admin
+              #         language: en
+              #         created_at: '2025-01-16T07:35:13.320962Z'
+              #         updated_at: '2025-02-11T03:42:11.642983Z'
+              #         last_login: '2025-02-11T03:42:11.641753Z'
+              #         force_password_change: false
+              #       references: []
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+  /api/v3.2/chats/{chat_id}/:
+    put:
+      tags:
+        - Chat endpoints 3.2
+      summary: Update Chat
+      description: Rename a conversation
+      operationId: update_chat_api_v3.2_chats__chat_id___put
+      security:
+        - MyHTTPBearer: []
+        - MyHTTPBearer: []
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Chat Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatUpdate3.2'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse3.2'
+              # example:
+              #   id: 7422e64949984a32ae62d53ab0786c4d
+              #   title: Chloe Chua
+              #   group_id: f42ab8e2ee844f0c8004428002fd3018
+              #   assistant_id: 528d05a796ed421dbede97184c7c2a7c
+              #   assistant_name: test asst
+              #   created_at: '2024-11-28T06:52:15.665861Z'
+              #   updated_at: '2025-02-11T04:10:59.824569Z'
+              #   created_by:
+              #     id: d7a748e2b07d4e39aa75c9127bec6f34
+              #     username: groupadmin@example.com
+              #     last_name: admin
+              #     first_name: group
+              #     display_name: admin group
+              #     role: SystemAdmin
+              #     language: en
+              #     created_at: '2024-11-28T02:59:21.791682Z'
+              #     updated_at: '2025-02-11T04:00:49.038658Z'
+              #     last_login: '2025-02-11T04:00:49.037257Z'
+              #     force_password_change: false
+              #   updated_by:
+              #     id: d7a748e2b07d4e39aa75c9127bec6f34
+              #     username: groupadmin@example.com
+              #     last_name: admin
+              #     first_name: group
+              #     display_name: admin group
+              #     role: SystemAdmin
+              #     language: en
+              #     created_at: '2024-11-28T02:59:21.791682Z'
+              #     updated_at: '2025-02-11T04:00:49.038658Z'
+              #     last_login: '2025-02-11T04:00:49.037257Z'
+              #     force_password_change: false
+              #   references: []
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: chat {chat_id} not found
+                code: ChatNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '422':
+          content:
+            application/json:
+              examples:
+                ValidationError:
+                  value:
+                    message: 'body.field1.field2: field required, ...'
+                    code: ValidationError
+                InvalidReferencesError:
+                  value:
+                    message: 'reference {reference_ids} deleted or access denied'
+                    code: InvalidReferencesError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+    # delete:
+    #   tags:
+    #     - Chat endpoints 3.2
+    #   summary: Delete Chat
+    #   description: Delete a conversation and its messages
+    #   operationId: delete_chat_api_v3.2_chats__chat_id___delete
+    #   security:
+    #     - MyHTTPBearer: []
+    #   parameters:
+    #     - name: chat_id
+    #       in: path
+    #       required: true
+    #       schema:
+    #         anyOf:
+    #           - type: string
+    #           - type: string
+    #             format: uuid
+    #         title: Chat Id
+    #   responses:
+    #     '204':
+    #       description: Successful Response
+    #       content:
+    #         application/json:
+    #           schema:
+    #             type: string
+    #             enum:
+    #               - ''
+    #     '401':
+    #       content:
+    #         application/json:
+    #           example:
+    #             message: invalid access token
+    #             code: InvalidAccessTokenError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Unauthorized
+    #     '403':
+    #       content:
+    #         application/json:
+    #           example:
+    #             message: not authenticated
+    #             code: UnauthenticatedError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Forbidden
+    #     '422':
+    #       content:
+    #         application/json:
+    #           example:
+    #             message: 'body.field1.field2: field required, ...'
+    #             code: ValidationError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Unprocessable Entity
+    get:
+      tags:
+        - Chat endpoints 3.2
+      summary: Get Chat
+      description: Retrieve conversation details, including messages and evidence
+      operationId: get_chat_api_v3.2_chats__chat_id___get
+      security:
+        - MyHTTPBearer: []
+        - MyHTTPBearer: []
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Chat Id
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatWithMessagesResponse3.2'
+              # example:
+              #   id: 7422e64949984a32ae62d53ab0786c4d
+              #   title: Ã£â€šÂ¯Ã£Æ’Â­Ã£â€šÂ¨Ã£Æ’Â»Ã£Æ’ÂÃ£Æ’Â¥Ã£â€šÂ¢Ã£ÂÂ¨Ã¥Â½Â¼Ã¥Â¥Â³Ã£ÂÂ®Ã¦Â¼â€Ã¥Â¥ÂÃ£ÂÂ®Ã©Â­â€¦Ã¥Å â€º
+              #   group_id: f42ab8e2ee844f0c8004428002fd3018
+              #   assistant_name: assistant 1
+              #   created_at: '2024-11-28T06:52:15.665861Z'
+              #   updated_at: '2024-11-28T06:52:26.634176Z'
+              #   created_by:
+              #     id: d7a748e2b07d4e39aa75c9127bec6f34
+              #     username: groupadmin@example.com
+              #     last_name: admin
+              #     first_name: group
+              #     display_name: admin group
+              #     role: SystemAdmin
+              #     language: en
+              #     created_at: '2024-11-28T02:59:21.791682Z'
+              #     updated_at: '2025-02-11T04:00:49.038658Z'
+              #     last_login: '2025-02-11T04:00:49.037257Z'
+              #     force_password_change: false
+              #   updated_by:
+              #     id: d7a748e2b07d4e39aa75c9127bec6f34
+              #     username: groupadmin@example.com
+              #     last_name: admin
+              #     first_name: group
+              #     display_name: admin group
+              #     role: SystemAdmin
+              #     language: en
+              #     created_at: '2024-11-28T02:59:21.791682Z'
+              #     updated_at: '2025-02-11T04:00:49.038658Z'
+              #     last_login: '2025-02-11T04:00:49.037257Z'
+              #     force_password_change: false
+              #   references: []
+              #   messages:
+              #     - content: do you know anything about Chloe Chua?
+              #       role: user
+              #       feedback: neutral
+              #       id: bb9133a017944801b05b5f8ebeb7514d
+              #       attachments: []
+              #       references: []
+              #       chunks: []
+              #       children:
+              #         - id: 3c9c82cf391b4f29a6b84fc7184e30b1
+              #           role: assistant
+              #           content: Ã£â€šÂ¯Ã£Æ’Â­Ã£â€šÂ¨Ã£Æ’Â»Ã£Æ’ÂÃ£Æ’Â¥Ã£â€šÂ¢Ã¯Â¼Ë†Chloe ChuaÃ¯Â¼â€°Ã£ÂÂ¯Ã£â‚¬ÂÃ£â‚¬Â28Ã¢â‚¬Â 2Ã£â‚¬â€˜Ã£â‚¬Â28Ã¢â‚¬Â 5Ã£â‚¬â€˜Ã£â‚¬â€š
+              #       created_at: '2024-11-28T06:52:16.269916Z'
+              #       updated_at: '2024-11-28T06:52:16.270954Z'
+              #     - content: Ã£â€šÂ¯Ã£Æ’Â­Ã£â€šÂ¨Ã£Æ’Â»Ã£Æ’ÂÃ£Æ’Â¥Ã£â€šÂ¢Ã¯Â¼Ë†Chloe ChuaÃ¯Â¼â€°Ã£ÂÂ¯Ã£â‚¬ÂÃ£â‚¬Â28Ã¢â‚¬Â 2Ã£â‚¬â€˜Ã£â‚¬Â28Ã¢â‚¬Â 5Ã£â‚¬â€˜Ã£â‚¬â€š
+              #       role: assistant
+              #       parent_id: bb9133a017944801b05b5f8ebeb7514d
+              #       feedback: neutral
+              #       id: 3c9c82cf391b4f29a6b84fc7184e30b1
+              #       attachments: []
+              #       references:
+              #         - id: e0f5ca09147e49dea16714cc4942b13a
+              #           name: booklet.pdf
+              #           content_type: application/pdf
+              #           size: 2657600
+              #           uri: data/references/e0f5ca09-147e-49de-a167-14cc4942b13a.pdf
+              #           extension: pdf
+              #           status: indexed
+              #           attribute: basic
+              #           category: reference
+              #           collections:
+              #             - name: my folder
+              #               id: 0f3fe6ec37704594b02246f4f87bb9ca
+              #           created_at: '2024-11-27T06:33:14.703997Z'
+              #           updated_at: '2024-11-28T06:52:29.677319Z'
+              #       chunks:
+              #         - chunk_id: 08564064124645a992354da2cf183816
+              #           text: chunk text 1
+              #           metadata:
+              #             doc_name: e0f5ca09147e49dea16714cc4942b13a
+              #             image_path: ''
+              #             content_type: SECTION
+              #             parentPageIdx: 2
+              #             pageIdx: 2
+              #         - chunk_id: 2a00afee04f5469b9fe8291c00fd6997
+              #           text: chunk text 2
+              #           metadata:
+              #             doc_name: e0f5ca09147e49dea16714cc4942b13a
+              #             image_path: ''
+              #             content_type: SECTION
+              #             parentPageIdx: 1
+              #             pageIdx: 1
+              #         - chunk_id: 69352e2163aa49ca8461b896b804b315
+              #           text: chunk text 3
+              #           metadata:
+              #             doc_name: e0f5ca09147e49dea16714cc4942b13a
+              #             image_path: ''
+              #             content_type: SECTION
+              #             parentPageIdx: 3
+              #             pageIdx: 3
+              #         - chunk_id: 6c29a26ad82749cabb1bcf76ee25550e
+              #           text: chunk text 4
+              #           metadata:
+              #             doc_name: e0f5ca09147e49dea16714cc4942b13a
+              #             image_path: ''
+              #             content_type: SECTION
+              #             parentPageIdx: 8
+              #             pageIdx: 8
+              #         - chunk_id: 12fe1009eab9412188065079a53789d0
+              #           text: chunk text 5
+              #           metadata:
+              #             doc_name: e0f5ca09147e49dea16714cc4942b13a
+              #             image_path: ''
+              #             content_type: SECTION
+              #             parentPageIdx: 6
+              #             pageIdx: 6
+              #       mapping_evidence:
+              #         '2': 08564064124645a992354da2cf183816
+              #         '5': 2a00afee04f5469b9fe8291c00fd6997
+              #       children:
+              #         - id: cbaa79fdcaf8486ebf5c577e04b06d17
+              #           role: user
+              #           content: I wanna see some of her images
+              #       created_at: '2024-11-28T06:52:26.659251Z'
+              #       updated_at: '2024-11-28T06:52:26.660319Z'
+              #     - content: I wanna see some of her images
+              #       role: user
+              #       parent_id: 3c9c82cf391b4f29a6b84fc7184e30b1
+              #       feedback: neutral
+              #       id: cbaa79fdcaf8486ebf5c577e04b06d17
+              #       attachments: []
+              #       references: []
+              #       chunks: []
+              #       children:
+              #         - id: 6ac32e0bc793451d95305e6477e845ec
+              #           role: assistant
+              #           content: Ã§â€Â³Ã£Ââ€”Ã¨Â¨Â³Ã£Ââ€šÃ£â€šÅ Ã£ÂÂ¾Ã£Ââ€ºÃ£â€šâ€œÃ£ÂÅ’Ã£â‚¬ÂÃ£â€šÂ¯Ã£Æ’Â­Ã£â€šÂ¨Ã£Æ’Â»Ã£Æ’ÂÃ£Æ’Â¥Ã£â€šÂ¢Ã£ÂÂ®Ã§â€Â»Ã¥Æ’ÂÃ£ÂÂ¯Ã¨Â¡Â¨Ã§Â¤ÂºÃ£ÂÂ§Ã£ÂÂÃ£ÂÂ¾Ã£Ââ€ºÃ£â€šâ€œÃ£â‚¬â€šÃ¥Â½Â¼Ã¥Â¥Â³Ã£ÂÂ«Ã©â€“Â¢Ã£Ââ„¢Ã£â€šâ€¹Ã¨Â©Â³Ã§Â´Â°Ã£ÂÂªÃ¦Æ’â€¦Ã¥Â Â±Ã£â€šâ€™Ã£ÂÅ Ã¦Å½Â¢Ã£Ââ€”Ã£ÂÂ®Ã¥Â Â´Ã¥ÂË†Ã£â‚¬ÂÃ¥â€¦Â¬Ã¥Â¼ÂÃ£ÂÂ®Ã£â€šÂ¦Ã£â€šÂ§Ã£Æ’â€“Ã£â€šÂµÃ£â€šÂ¤Ã£Æ’Ë†Ã£â€šâ€žÃ¥â€¦Â¬Ã¦Â¼â€Ã£ÂÂ®Ã¨Â³â€¡Ã¦â€“â„¢Ã£ÂÂªÃ£ÂÂ©Ã£â€šâ€™Ã¥Ââ€šÃ§â€¦Â§Ã£Ââ„¢Ã£â€šâ€¹Ã£Ââ€œÃ£ÂÂ¨Ã£â€šâ€™Ã£ÂÅ Ã¥â€¹Â§Ã£â€šÂÃ£Ââ€”Ã£ÂÂ¾Ã£Ââ„¢Ã£â‚¬â€š
+              #       created_at: '2024-11-28T09:35:55.322268Z'
+              #       updated_at: '2024-11-28T09:35:55.323348Z'
+              #     - content: Ã§â€Â³Ã£Ââ€”Ã¨Â¨Â³Ã£Ââ€šÃ£â€šÅ Ã£ÂÂ¾Ã£Ââ€ºÃ£â€šâ€œÃ£ÂÅ’Ã£â‚¬ÂÃ£â€šÂ¯Ã£Æ’Â­Ã£â€šÂ¨Ã£Æ’Â»Ã£Æ’ÂÃ£Æ’Â¥Ã£â€šÂ¢Ã£ÂÂ®Ã§â€Â»Ã¥Æ’ÂÃ£ÂÂ¯Ã¨Â¡Â¨Ã§Â¤ÂºÃ£ÂÂ§Ã£ÂÂÃ£ÂÂ¾Ã£Ââ€ºÃ£â€šâ€œÃ£â‚¬â€šÃ¥Â½Â¼Ã¥Â¥Â³Ã£ÂÂ«Ã©â€“Â¢Ã£Ââ„¢Ã£â€šâ€¹Ã¨Â©Â³Ã§Â´Â°Ã£ÂÂªÃ¦Æ’â€¦Ã¥Â Â±Ã£â€šâ€™Ã£ÂÅ Ã¦Å½Â¢Ã£Ââ€”Ã£ÂÂ®Ã¥Â Â´Ã¥ÂË†Ã£â‚¬ÂÃ¥â€¦Â¬Ã¥Â¼ÂÃ£ÂÂ®Ã£â€šÂ¦Ã£â€šÂ§Ã£Æ’â€“Ã£â€šÂµÃ£â€šÂ¤Ã£Æ’Ë†Ã£â€šâ€žÃ¥â€¦Â¬Ã¦Â¼â€Ã£ÂÂ®Ã¨Â³â€¡Ã¦â€“â„¢Ã£ÂÂªÃ£ÂÂ©Ã£â€šâ€™Ã¥Ââ€šÃ§â€¦Â§Ã£Ââ„¢Ã£â€šâ€¹Ã£Ââ€œÃ£ÂÂ¨Ã£â€šâ€™Ã£ÂÅ Ã¥â€¹Â§Ã£â€šÂÃ£Ââ€”Ã£ÂÂ¾Ã£Ââ„¢Ã£â‚¬â€š
+              #       role: assistant
+              #       parent_id: cbaa79fdcaf8486ebf5c577e04b06d17
+              #       feedback: neutral
+              #       id: 6ac32e0bc793451d95305e6477e845ec
+              #       attachments: []
+              #       references: []
+              #       chunks: []
+              #       mapping_evidence: {}
+              #       children: []
+              #       created_at: '2024-11-28T09:36:01.998636Z'
+              #       updated_at: '2024-11-28T09:36:01.999799Z'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: chat {chat_id} not found
+                code: ChatNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+  /api/v3.2/chats/{chat_id}/duplicate/:
+    post:
+      tags:
+        - Chat endpoints 3.2
+      summary: Duplicate Chat
+      description: Duplicate an existing conversation
+      operationId: duplicate_chat_api_v3.2_chats__chat_id__duplicate__post
+      security:
+        - MyHTTPBearer: []
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Chat Id
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse3.2'
+              # example:
+              #   id: e11f05371bed436c88119916ac485bc9
+              #   title: Ã£â€šÂ¯Ã£Æ’Â­Ã£â€šÂ¨Ã£Æ’Â»Ã£Æ’ÂÃ£Æ’Â¥Ã£â€šÂ¢Ã£ÂÂ¨Ã¥Â½Â¼Ã¥Â¥Â³Ã£ÂÂ®Ã¦Â¼â€Ã¥Â¥ÂÃ£ÂÂ®Ã©Â­â€¦Ã¥Å â€ºÃ£ÂÂ®Ã£â€šÂ³Ã£Æ’â€Ã£Æ’Â¼
+              #   group_id: f42ab8e2ee844f0c8004428002fd3018
+              #   assistant_id: 528d05a796ed421dbede97184c7c2a7c
+              #   assistant_name: test asst
+              #   created_at: '2025-02-11T04:12:19.181826Z'
+              #   updated_at: '2025-02-11T04:12:19.181826Z'
+              #   created_by:
+              #     id: d7a748e2b07d4e39aa75c9127bec6f34
+              #     username: groupadmin@example.com
+              #     last_name: admin
+              #     first_name: group
+              #     display_name: admin group
+              #     role: SystemAdmin
+              #     language: en
+              #     created_at: '2024-11-28T02:59:21.791682Z'
+              #     updated_at: '2025-02-11T04:00:49.038658Z'
+              #     last_login: '2025-02-11T04:00:49.037257Z'
+              #     force_password_change: false
+              #   references: []
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: chat {chat_id} not found
+                code: ChatNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+  
+  /api/v3.2/chats/{chat_id}/messages/:
+    post:
+      tags:
+        - Chat endpoints 3.2
+      summary: Create New Message
+      description: Add a new message to a conversation
+      operationId: create_new_message_api_v3_2_chats__chat_id__messages__post
+      security:
+        - MyHTTPBearer: []
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Chat Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageCreate3.2'
+      responses:
+        '200':
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: |
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"申し"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"訳"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"ありません"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"が"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"、"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"提供"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"された"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"コン"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"テ"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"キ"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"スト"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"には"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"天"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"気"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"に"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"関"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"する"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"情報"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"が"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"含"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"ま"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"れて"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"い"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"ない"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"ため"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"、"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"今日"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"の"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"天"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"気"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"について"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"は"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"お"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"答"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"え"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"でき"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"ません"}]
+
+                event: chat
+                data: [{"id":0,"role":"assistant","content":"。"}]
+
+                event: evidences
+                data: [{"id":0,"text":"申し訳ありませんが、提供されたコンテキストには天気に関する情報が含まれていないため、今日の天気についてはお答えできません。","mapping":{}}]
+
+                event: chunks
+                data: []
+
+                event: files
+                data: {"attachments":[],"references":[]}
+          description: OK
+        '201':
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              examples:
+                Invalid Parent I D Error:
+                  summary: Invalid Parent I D Error
+                  value:
+                    message: invalid parent ID {parent_id}
+                    code: InvalidParentIDError
+                Token Limits Exceeded Error:
+                  summary: Token Limits Exceeded Error
+                  value:
+                    message: exceeded token limits for {level}{obj_id}
+                    code: TokenLimitsExceededError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Bad Request
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              examples:
+                Chat Not Found Error:
+                  summary: Chat Not Found Error
+                  value:
+                    message: chat {chat_id} not found
+                    code: ChatNotFoundError
+                Invalid Attachments Error:
+                  summary: Invalid Attachments Error
+                  value:
+                    message: attachments {attachment_ids} not found or access denied
+                    code: InvalidAttachmentsError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '413':
+          content:
+            application/json:
+              example:
+                message: 'max attachments file size exceeded, current size: {current_size}, max size: {max_size}'
+                code: MaxAttachmentsSizeExceededError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Request Entity Too Large
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+
+  /api/v3/references/:
+    get:
+      tags:
+        - Reference endpoints 3.0
+      summary: Get References
+      description: Retrieve metadata for all references
+      operationId: get_references_api_v3_references__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferenceList'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+              example:
+                message: not enough permission to perform this action
+                code: NoPermissionError
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+      security:
+        - MyHTTPBearer: []
+        - MyHTTPBearer: []
+  /api/v3/references/search/:
+    get:
+      tags:
+        - Reference endpoints 3.0
+      summary: Search References
+      description: Search for references by name
+      operationId: search_references_api_v3_references_search__get
+      security:
+        - MyHTTPBearer: []
+        - MyHTTPBearer: []
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+            title: Name
+        - name: sort
+          in: query
+          required: false
+          schema:
+            enum:
+              - id
+              - name
+              - group_name
+              - content_type
+              - size
+              - extension
+              - updated_at
+              - '-id'
+              - '-name'
+              - '-group_name'
+              - '-content_type'
+              - '-size'
+              - '-extension'
+              - '-updated_at'
+            type: string
+            default: '-updated_at'
+            title: Sort
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            title: Skip
+        - name: group_id
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+                nullable: true
+            title: Group Id
+        - name: content_type
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+                nullable: true
+            title: Content Type
+        - name: extension
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+                nullable: true
+            title: Extension
+        - name: size
+          in: query
+          required: false
+          schema:
+            enum:
+              - '10'
+              - '20'
+              - '50'
+            type: string
+            description: Must be one of 10, 20, or 50.
+            default: '10'
+            title: Size
+          description: Must be one of 10, 20, or 50.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferenceWithGroupList'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not enough permission to perform this action
+                code: NoPermissionError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+
+  /api/v3.2/references/:
+    get:
+      tags:
+        - Reference endpoints 3.2
+      summary: Get References
+      description: Retrieve metadata for all references
+      operationId: get_references_api_v3.2_references__get
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferenceList3.2'
+              # example:
+              #   total: 4
+              #   items:
+              #     - id: 020e5b9f183c4633a438e265ac9bb9f0
+              #       name: test 1.pdf
+              #       content_type: application/pdf
+              #       size: 2857274
+              #       uri: data/references/020e5b9f-183c-4633-a438-e265ac9bb9f0.pdf
+              #       extension: pdf
+              #       status: indexing
+              #       attribute: basic
+              #       category: reference
+              #       collections:
+              #         - name: test collection
+              #           id: e97779d0424c4735a8a99c1b5d44c1d7
+              #       created_at: '2025-01-24T07:55:37.942825Z'
+              #       updated_at: '2025-01-24T08:45:48.353485Z'
+              #       created_by:
+              #         id: 8e06ece5f2db47dea45cfa4f96672b01
+              #         username: groupadmin@example.com
+              #         display_name: admin group
+              #     - id: 068f3135527e4987913637e642111ae1
+              #       name: test 2.pdf
+              #       content_type: application/pdf
+              #       size: 285727
+              #       uri: data/references/068f3135-527e-4987-9136-37e642111ae1.pdf
+              #       extension: pdf
+              #       status: created
+              #       attribute: basic
+              #       category: reference
+              #       collections:
+              #         - name: test collection
+              #           id: e97779d0424c4735a8a99c1b5d44c1d7
+              #       created_at: '2025-01-24T07:56:39.391654Z'
+              #       updated_at: '2025-01-24T09:00:59.176171Z'
+              #       created_by:
+              #         id: 8e06ece5f2db47dea45cfa4f96672b01
+              #         username: groupadmin@example.com
+              #         display_name: admin group
+              #     - id: 08c8b71b1b294cc59cdeeab54a7c9404
+              #       name: test.jpg
+              #       content_type: image/jpeg
+              #       size: 265606
+              #       uri: data/references/08c8b71b-1b29-4cc5-9cde-eab54a7c9404.jpg
+              #       extension: jpg
+              #       status: indexed
+              #       attribute: basic
+              #       category: reference
+              #       collections:
+              #         - name: test collection
+              #           id: e97779d0424c4735a8a99c1b5d44c1d7
+              #       created_at: '2025-01-24T07:54:58.379627Z'
+              #       updated_at: '2025-01-24T08:38:05.229630Z'
+              #       created_by:
+              #         id: 8e06ece5f2db47dea45cfa4f96672b01
+              #         username: groupadmin@example.com
+              #         display_name: admin group
+              #     - id: 15b6254b04ed4d01911f8dafd155a6d8
+              #       name: test 3.pdf
+              #       content_type: application/pdf
+              #       size: 857274
+              #       uri: data/references/15b6254b-04ed-4d01-911f-8dafd155a6d8.pdf
+              #       extension: pdf
+              #       status: error
+              #       attribute: basic
+              #       category: reference
+              #       collections:
+              #         - name: test collection
+              #           id: e97779d0424c4735a8a99c1b5d44c1d7
+              #       created_at: '2025-01-24T07:56:47.174587Z'
+              #       updated_at: '2025-01-24T09:03:05.727874Z'
+              #       created_by:
+              #         id: 8e06ece5f2db47dea45cfa4f96672b01
+              #         username: groupadmin@example.com
+              #         display_name: admin group
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+      security:
+        - MyHTTPBearer: []
+        - MyHTTPBearer: []
+  /api/v3.2/references/search/:
+    get:
+      tags:
+        - Reference endpoints 3.2
+      summary: Search References
+      description: Search for references by name
+      operationId: search_references_api_v3.2_references_search__get
+      security:
+        - MyHTTPBearer: []
+        - MyHTTPBearer: []
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            title: Name
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            title: Skip
+        - name: group_id
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+                nullable: true
+            title: Group Id
+        - name: content_type
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+                nullable: true
+            title: Content Type
+        - name: extension
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+                nullable: true
+            title: Extension
+        - name: attributes
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: array
+                items:
+                  $ref: '#/components/schemas/ReferenceAttribute3.2'
+                nullable: true
+            title: Attributes
+        - name: sort
+          in: query
+          required: false
+          schema:
+            enum:
+              - id
+              - name
+              - group_name
+              - content_type
+              - size
+              - extension
+              - attribute
+              - updated_at
+              - '-id'
+              - '-name'
+              - '-group_name'
+              - '-content_type'
+              - '-size'
+              - '-extension'
+              - '-attribute'
+              - '-updated_at'
+            type: string
+            default: '-updated_at'
+            title: Sort
+        - name: size
+          in: query
+          required: false
+          schema:
+            enum:
+              - '10'
+              - '20'
+              - '50'
+            type: string
+            description: Must be one of 10, 20, or 50.
+            default: '10'
+            title: Size
+          description: Must be one of 10, 20, or 50.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferenceList3.2'
+              # example:
+              #   total: 4
+              #   items:
+              #     - id: 020e5b9f183c4633a438e265ac9bb9f0
+              #       name: test 1.pdf
+              #       content_type: application/pdf
+              #       size: 2857274
+              #       uri: data/references/020e5b9f-183c-4633-a438-e265ac9bb9f0.pdf
+              #       extension: pdf
+              #       status: indexing
+              #       attribute: basic
+              #       category: reference
+              #       collections:
+              #         - name: test collection
+              #           id: e97779d0424c4735a8a99c1b5d44c1d7
+              #       created_at: '2025-01-24T07:55:37.942825Z'
+              #       updated_at: '2025-01-24T08:45:48.353485Z'
+              #       created_by:
+              #         id: 8e06ece5f2db47dea45cfa4f96672b01
+              #         username: groupadmin@example.com
+              #         display_name: admin group
+              #     - id: 068f3135527e4987913637e642111ae1
+              #       name: test 2.pdf
+              #       content_type: application/pdf
+              #       size: 285727
+              #       uri: data/references/068f3135-527e-4987-9136-37e642111ae1.pdf
+              #       extension: pdf
+              #       status: created
+              #       attribute: basic
+              #       category: reference
+              #       collections:
+              #         - name: test collection
+              #           id: e97779d0424c4735a8a99c1b5d44c1d7
+              #       created_at: '2025-01-24T07:56:39.391654Z'
+              #       updated_at: '2025-01-24T09:00:59.176171Z'
+              #       created_by:
+              #         id: 8e06ece5f2db47dea45cfa4f96672b01
+              #         username: groupadmin@example.com
+              #         display_name: admin group
+              #     - id: 08c8b71b1b294cc59cdeeab54a7c9404
+              #       name: test.jpg
+              #       content_type: image/jpeg
+              #       size: 265606
+              #       uri: data/references/08c8b71b-1b29-4cc5-9cde-eab54a7c9404.jpg
+              #       extension: jpg
+              #       status: indexed
+              #       attribute: basic
+              #       category: reference
+              #       collections:
+              #         - name: test collection
+              #           id: e97779d0424c4735a8a99c1b5d44c1d7
+              #       created_at: '2025-01-24T07:54:58.379627Z'
+              #       updated_at: '2025-01-24T08:38:05.229630Z'
+              #       created_by:
+              #         id: 8e06ece5f2db47dea45cfa4f96672b01
+              #         username: groupadmin@example.com
+              #         display_name: admin group
+              #     - id: 15b6254b04ed4d01911f8dafd155a6d8
+              #       name: test 3.pdf
+              #       content_type: application/pdf
+              #       size: 857274
+              #       uri: data/references/15b6254b-04ed-4d01-911f-8dafd155a6d8.pdf
+              #       extension: pdf
+              #       status: error
+              #       attribute: basic
+              #       category: reference
+              #       collections:
+              #         - name: test collection
+              #           id: e97779d0424c4735a8a99c1b5d44c1d7
+              #       created_at: '2025-01-24T07:56:47.174587Z'
+              #       updated_at: '2025-01-24T09:03:05.727874Z'
+              #       created_by:
+              #         id: 8e06ece5f2db47dea45cfa4f96672b01
+              #         username: groupadmin@example.com
+              #         display_name: admin group
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+
+  /api/v3/collections/{collection_id}/references/:
+    get:
+      tags:
+        - Collection endpoints 3.0
+      summary: Get Collection References
+      description: Retrieve all references in a folder
+      operationId: get_collection_references_api_v3.2_collections__collection_id__references__get
+      security:
+        - MyHTTPBearer: []
+        - MyHTTPBearer: []
+      parameters:
+        - name: collection_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Collection Id
+        - name: sort
+          in: query
+          required: false
+          schema:
+            enum:
+              - id
+              - name
+              - content_type
+              - size
+              - extension
+              - updated_at
+              - '-id'
+              - '-name'
+              - '-content_type'
+              - '-size'
+              - '-extension'
+              - '-updated_at'
+            type: string
+            default: '-updated_at'
+            title: Sort
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            title: Skip
+        - name: name
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+                nullable: true
+            title: Name
+        - name: size
+          in: query
+          required: false
+          schema:
+            enum:
+              - '10'
+              - '20'
+              - '50'
+            type: string
+            description: Must be one of 10, 20, or 50.
+            default: '10'
+            title: Size
+          description: Must be one of 10, 20, or 50.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferenceList'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not enough permission to perform this action
+                code: NoPermissionError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: collection {collection_id} not found
+                code: CollectionNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+    post:
+      tags:
+        - Collection endpoints 3.0
+      summary: Upload Collection Reference
+      description: Upload a reference to a folder
+      operationId: upload_collection_reference_api_v3_collections__collection_id__references__post
+      security:
+        - MyHTTPBearer: []
+        - MyHTTPBearer: []
+      parameters:
+        - name: collection_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Collection Id
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_upload_collection_reference_api_v3_collections__collection_id__references__post'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferenceResponseZip'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not enough permission to perform this action
+                code: NoPermissionError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: collection {collection_id} not found
+                code: CollectionNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              example:
+                message: reference {reference_name} already exists in collection {collection_id}
+                code: ReferenceAlreadyExistsError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              examples:
+                Too Many Files In Zip Error:
+                  summary: Too Many Files In Zip Error
+                  value:
+                    message: too many files in zip ({num_files})
+                    code: TooManyFilesInZipError
+                Zip Total Size Exceeded Error:
+                  summary: Zip Total Size Exceeded Error
+                  value:
+                    message: total file size in zip exceeded limit ({total_size}MB)
+                    code: ZipTotalSizeExceededError
+                File Upload Error:
+                  summary: File Upload Error
+                  value:
+                    message: ''
+                    code: FileUploadError
+                No File Error:
+                  summary: No File Error
+                  value:
+                    message: file not found in the request body
+                    code: NoFileError
+                Multiple Files Error:
+                  summary: Multiple Files Error
+                  value:
+                    message: there are multiple files in the request body
+                    code: MultipleFilesError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+    # delete:
+    #   tags:
+    #     - Collection endpoints 3.0
+    #   summary: Remove Collection Reference
+    #   description: Remove references from a folder
+    #   operationId: remove_collection_reference_api_v3_collections__collection_id__references__delete
+    #   security:
+    #     - MyHTTPBearer: []
+    #     - MyHTTPBearer: []
+    #   parameters:
+    #     - name: collection_id
+    #       in: path
+    #       required: true
+    #       schema:
+    #         anyOf:
+    #           - type: string
+    #           - type: string
+    #             format: uuid
+    #         title: Collection Id
+    #   requestBody:
+    #     required: true
+    #     content:
+    #       application/json:
+    #         schema:
+    #           $ref: '#/components/schemas/ReferenceIds'
+    #   responses:
+    #     '204':
+    #       description: Successful Response
+    #     '401':
+    #       content:
+    #         application/json:
+    #           example:
+    #             message: invalid access token
+    #             code: InvalidAccessTokenError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Unauthorized
+    #     '403':
+    #       content:
+    #         application/json:
+    #           example:
+    #             message: not enough permission to perform this action
+    #             code: NoPermissionError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Forbidden
+    #     '404':
+    #       content:
+    #         application/json:
+    #           example:
+    #             message: collection {collection_id} not found
+    #             code: CollectionNotFoundError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Not Found
+    #     '422':
+    #       content:
+    #         application/json:
+    #           example:
+    #             message: 'body.field1.field2: field required, ...'
+    #             code: ValidationError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Unprocessable Entity
+
+  /api/v3.2/collections/{collection_id}/references/:
+    get:
+      tags:
+        - Collection endpoints 3.2
+      summary: Get Collection References V3X
+      description: Retrieve all references in a folder
+      operationId: get_collection_references_v3x_api_v3.2_collections__collection_id__references__get
+      security:
+        - MyHTTPBearer: []
+        - MyHTTPBearer: []
+      parameters:
+        - name: collection_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Collection Id
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            title: Skip
+        - name: attributes
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: array
+                items:
+                  $ref: '#/components/schemas/ReferenceAttribute3.2'
+                nullable: true
+            title: Attributes
+        - name: name
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+                nullable: true
+            title: Name
+        - name: sort
+          in: query
+          required: false
+          schema:
+            enum:
+              - id
+              - name
+              - group_name
+              - content_type
+              - size
+              - extension
+              - attribute
+              - updated_at
+              - '-id'
+              - '-name'
+              - '-group_name'
+              - '-content_type'
+              - '-size'
+              - '-extension'
+              - '-attribute'
+              - '-updated_at'
+            type: string
+            default: '-updated_at'
+            title: Sort
+        - name: size
+          in: query
+          required: false
+          schema:
+            enum:
+              - '10'
+              - '20'
+              - '50'
+            type: string
+            description: Must be one of 10, 20, or 50.
+            default: '10'
+            title: Size
+          description: Must be one of 10, 20, or 50.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferenceList3.2'
+              # example:
+              #   total: 3
+              #   items:
+              #     - id: 87885d763af5444799cb5ed26d3590a4
+              #       name: test.xlsx
+              #       content_type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+              #       size: 13824
+              #       uri: data/references/87885d76-3af5-4447-99cb-5ed26d3590a4.xlsx
+              #       extension: xlsx
+              #       status: error
+              #       attribute: basic
+              #       category: reference
+              #       collections:
+              #         - name: test collection
+              #           id: c74412be5df44165a9df26c4d9b0ecfe
+              #       created_at: '2025-01-16T07:29:04.400650Z'
+              #       updated_at: '2025-01-16T08:24:53.207588Z'
+              #       created_by:
+              #         id: 0cffb34c4d9246af8bc99b525ad15304
+              #         username: groupadmin@example.com
+              #         display_name: admin group
+              #     - id: 4b16a15261c245f3827886abf97fc157
+              #       name: test.mhtml
+              #       content_type: multipart/related
+              #       size: 525262
+              #       uri: data/references/4b16a152-61c2-45f3-8278-86abf97fc157.mhtml
+              #       extension: mhtml
+              #       status: indexed
+              #       attribute: basic
+              #       category: reference
+              #       collections:
+              #         - name: test collection
+              #           id: c74412be5df44165a9df26c4d9b0ecfe
+              #       created_at: '2025-01-16T08:24:33.092417Z'
+              #       updated_at: '2025-01-16T08:24:41.360012Z'
+              #       created_by:
+              #         id: 0cffb34c4d9246af8bc99b525ad15304
+              #         username: groupadmin@example.com
+              #         display_name: admin group
+              #     - id: 63340c7393d94780b6a6a5f93f328d13
+              #       name: test.pdf
+              #       content_type: application/pdf
+              #       size: 2857274
+              #       uri: data/references/63340c73-93d9-4780-b6a6-a5f93f328d13.pdf
+              #       extension: pdf
+              #       status: indexed
+              #       attribute: basic
+              #       category: reference
+              #       collections:
+              #         - name: test collection
+              #           id: c74412be5df44165a9df26c4d9b0ecfe
+              #       created_at: '2025-01-16T07:31:10.067090Z'
+              #       updated_at: '2025-01-16T07:57:18.015399Z'
+              #       created_by:
+              #         id: 0cffb34c4d9246af8bc99b525ad15304
+              #         username: groupadmin@example.com
+              #         display_name: admin group
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+    post:
+      tags:
+        - Collection endpoints 3.2
+      summary: Upload Collection Reference
+      description: Upload a reference to a folder
+      operationId: upload_collection_reference_api_v3.2_collections__collection_id__references__post
+      security:
+        - MyHTTPBearer: []
+        - MyHTTPBearer: []
+      parameters:
+        - name: collection_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Collection Id
+          examples:
+            default:
+              summary: default
+              description: An arbitrary collection ID
+              value: cbf800c73d784aa283e436bc3890fd7f
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_upload_collection_reference_api_v3.2_collections__collection_id__references__post'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferenceResponseZip3.2'
+              # example:
+              #   id: b7d61b94d02445c19b313ef0b60acfb6
+              #   name: test.png
+              #   content_type: image/png
+              #   size: 1837719
+              #   uri: data/references/b7d61b94-d024-45c1-9b31-3ef0b60acfb6.png
+              #   extension: png
+              #   status: created
+              #   attribute: basic
+              #   category: reference
+              #   collections:
+              #     - name: test collection
+              #       id: 64849990c0b04d50a6538f0a2a046771
+              #   created_at: '2025-02-11T04:54:15.137548Z'
+              #   updated_at: '2025-02-11T04:54:15.137548Z'
+              #   created_by:
+              #     id: 8e06ece5f2db47dea45cfa4f96672b01
+              #     username: groupadmin@example.com
+              #     display_name: admin group
+              #   results: []
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '409':
+          content:
+            application/json:
+              example:
+                message: reference {reference_name} already exists in collection {collection_id}
+                code: ReferenceAlreadyExistsError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              examples:
+                Too Many Files In Zip Error:
+                  summary: Too Many Files In Zip Error
+                  value:
+                    message: too many files in zip ({num_files})
+                    code: TooManyFilesInZipError
+                Zip Total Size Exceeded Error:
+                  summary: Zip Total Size Exceeded Error
+                  value:
+                    message: total file size in zip exceeded limit ({total_size}MB)
+                    code: ZipTotalSizeExceededError
+                File Upload Error:
+                  summary: File Upload Error
+                  value:
+                    message: ''
+                    code: FileUploadError
+                No File Error:
+                  summary: No File Error
+                  value:
+                    message: file not found in the request body
+                    code: NoFileError
+                Multiple Files Error:
+                  summary: Multiple Files Error
+                  value:
+                    message: there are multiple files in the request body
+                    code: MultipleFilesError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+    # delete:
+    #   tags:
+    #     - Collection endpoints 3.2
+    #   summary: Remove Collection Reference
+    #   description: Remove references from a folder
+    #   operationId: remove_collection_reference_api_v3_collections__collection_id__references__delete
+    #   security:
+    #     - MyHTTPBearer: []
+    #     - MyHTTPBearer: []
+    #   parameters:
+    #     - name: collection_id
+    #       in: path
+    #       required: true
+    #       schema:
+    #         anyOf:
+    #           - type: string
+    #           - type: string
+    #             format: uuid
+    #         title: Collection Id
+    #   requestBody:
+    #     required: true
+    #     content:
+    #       application/json:
+    #         schema:
+    #           $ref: '#/components/schemas/ReferenceIds3.2'
+    #         examples:
+    #           default:
+    #             summary: Default
+    #             description: A default example
+    #             value:
+    #               reference_ids:
+    #                 - c0814e23516a4eecbf4cc58af80ad24e
+    #                 - 7a1f6dfc073143cebbbaf578f83bbd4c
+    #   responses:
+    #     '204':
+    #       description: Successful Response
+    #       content:
+    #         application/json:
+    #           schema:
+    #             type: string
+    #             enum:
+    #               - ''
+    #     '401':
+    #       content:
+    #         application/json:
+    #           example:
+    #             message: invalid access token
+    #             code: InvalidAccessTokenError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Unauthorized
+    #     '403':
+    #       content:
+    #         application/json:
+    #           examples:
+    #             No Permission Error:
+    #               summary: No Permission Error
+    #               value:
+    #                 message: not enough permission to perform this action
+    #                 code: NoPermissionError
+    #             Unauthenticated Error:
+    #               summary: Unauthenticated Error
+    #               value:
+    #                 message: not authenticated
+    #                 code: UnauthenticatedError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Forbidden
+    #     '422':
+    #       content:
+    #         application/json:
+    #           example:
+    #             message: 'body.field1.field2: field required, ...'
+    #             code: ValidationError
+    #           schema:
+    #             $ref: '#/components/schemas/ErrorResponseWithCode'
+    #       description: Unprocessable Entity
+
+
+
+components:
+  schemas:
+    AttachmentResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        content_type:
+          type: string
+          title: Content Type
+        size:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Size
+        uri:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Uri
+        extension:
+          type: string
+          title: Extension
+      type: object
+      required:
+        - id
+        - name
+        - content_type
+        - extension
+      title: AttachmentResponse
+    Attributes:
+      properties:
+        bbox:
+          anyOf:
+            - items:
+                anyOf:
+                  - type: string
+                  - type: integer
+              type: array
+            - $ref: '#/components/schemas/BoundingBox'
+              nullable: true
+          title: Bbox
+      type: object
+      title: Attributes
+    Body_upload_collection_reference_api_v3_collections__collection_id__references__post:
+      properties:
+        file:
+          type: string
+          format: binary
+          title: File
+      type: object
+      required:
+        - file
+      title: Body_upload_collection_reference_api_v3_collections__collection_id__references__post
+    Body_upload_collection_reference_api_v3.2_collections__collection_id__references__post:
+      properties:
+        file:
+          type: string
+          format: binary
+          title: File
+        attribute:
+          $ref: '#/components/schemas/ReferenceAttribute3.2'
+          default: basic
+      type: object
+      required:
+        - file
+      title: Body_upload_collection_reference_api_v3_collections__collection_id__references__post
+    BoundingBox:
+      properties:
+        x0:
+          type: number
+          title: X0
+        top:
+          type: number
+          title: Top
+        x1:
+          type: number
+          title: X1
+        bottom:
+          type: number
+          title: Bottom
+      type: object
+      required:
+        - x0
+        - top
+        - x1
+        - bottom
+      title: BoundingBox
+    ChatConfig:
+      properties:
+        chat_model:
+          anyOf:
+            - $ref: '#/components/schemas/ChatModel'
+          nullable: true
+        embedding_model:
+          anyOf:
+            - $ref: '#/components/schemas/EmbeddingModel'
+          nullable: true
+        stream:
+          type: boolean
+          title: Stream
+        temperature:
+          type: number
+          title: Temperature
+      type: object
+      required:
+        - stream
+        - temperature
+      title: ChatConfig
+    ChatCreate:
+      properties:
+        title:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Title
+        group_id:
+          anyOf:
+            - type: string
+            - type: string
+              format: uuid
+              nullable: true
+          title: Group Id
+        ref_ids:
+          items:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+          type: array
+          title: Ref Ids
+          default: []
+      type: object
+      title: ChatCreate
+    ChatCreate3.2:
+      properties:
+        title:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Title
+        ref_ids:
+          items:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+          type: array
+          title: Ref Ids
+          default: []
+        assistant_id:
+          anyOf:
+            - type: string
+            - type: string
+              format: uuid
+              nullable: true
+          title: Assistant Id
+      type: object
+      title: ChatCreate3.2
+    ChatList:
+      properties:
+        total:
+          type: integer
+          title: Total
+        items:
+          items:
+            $ref: '#/components/schemas/ChatResponse'
+          type: array
+          title: Items
+      type: object
+      required:
+        - total
+        - items
+      title: ChatList
+    ChatList3.2:
+      properties:
+        total:
+          type: integer
+          title: Total
+        items:
+          items:
+            $ref: '#/components/schemas/ChatResponse3.2'
+          type: array
+          title: Items
+      type: object
+      required:
+        - total
+        - items
+      title: ChatList3.2
+    ChatModel:
+      properties:
+        name:
+          type: string
+          title: Name
+        deployment_name:
+          type: string
+          title: Deployment Name
+        context_length:
+          type: integer
+          title: Context Length
+      type: object
+      required:
+        - name
+        - deployment_name
+        - context_length
+      title: ChatModel
+    ChatResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        title:
+          type: string
+          title: Title
+        group_id:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Group Id
+        assistant_name:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Assistant Name
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserResponse'
+        updated_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserResponse'
+          nullable: true
+          default: "null"
+        references:
+          items:
+            $ref: '#/components/schemas/ReferenceResponse'
+          type: array
+          title: References
+      type: object
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+        - created_by
+        - references
+      title: ChatResponse
+    ChatResponse3.2:
+      properties:
+        id:
+          type: string
+          title: Id
+        title:
+          type: string
+          title: Title
+        group_id:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Group Id
+        assistant_id:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Assistant Id
+        assistant_name:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Assistant Name
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserResponse'
+          nullable: true
+        updated_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserResponse'
+          nullable: true
+        references:
+          items:
+            $ref: '#/components/schemas/ReferenceResponse3.2'
+          type: array
+          title: References
+      type: object
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+        - created_by
+        - references
+      title: ChatResponse3.2
+    ChatRole:
+      type: string
+      enum:
+        - user
+        - assistant
+      title: ChatRole
+    ChatUpdate:
+      properties:
+        title:
+          anyOf:
+            - type: string
+          nullable: true
+          title: Title
+        ref_ids:
+          anyOf:
+            - items:
+                anyOf:
+                  - type: string
+                  - type: string
+                    format: uuid
+              type: array
+          nullable: true
+          title: Ref Ids
+      type: object
+      title: ChatUpdate
+    ChatUpdate3.2:
+      properties:
+        title:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Title
+        ref_ids:
+          anyOf:
+            - items:
+                anyOf:
+                  - type: string
+                  - type: string
+                    format: uuid
+            - type: array
+              nullable: true
+          title: Ref Ids
+      type: object
+      title: ChatUpdate
+    ChatWithMessagesResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        title:
+          type: string
+          title: Title
+        group_id:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Group Id
+        assistant_id:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Assistant Id
+        assistant_name:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Assistant Name
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserResponse'
+          nullable: true
+        updated_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserResponse'
+          nullable: true
+        references:
+          items:
+            $ref: '#/components/schemas/ReferenceResponse'
+          type: array
+          title: References
+        messages:
+          items:
+            $ref: '#/components/schemas/MessageResponse'
+          type: array
+          title: Messages
+      type: object
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+        - created_by
+        - references
+        - messages
+      title: ChatWithMessagesResponse
+    ChatWithMessagesResponse3.2:
+      title: ChatWithMessagesResponse
+      type: object
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+        - created_by
+        - references
+        - messages
+      properties:
+        id:
+          type: string
+          title: Id
+        title:
+          type: string
+          title: Title
+        group_id:
+          anyOf:
+            - type: string
+          nullable: true
+          title: Group Id
+        assistant_id:
+          anyOf:
+            - type: string
+          nullable: true
+          title: Assistant Id
+        assistant_name:
+          anyOf:
+            - type: string
+          nullable: true
+          title: Assistant Name
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: "#/components/schemas/UserResponse"
+          nullable: true
+        updated_by:
+          anyOf:
+            - $ref: "#/components/schemas/UserResponse"
+          nullable: true
+        references:
+          type: array
+          title: References
+          items:
+            $ref: "#/components/schemas/ReferenceResponse3.2"
+        messages:
+          type: array
+          title: Messages
+          items:
+            $ref: "#/components/schemas/MessageResponse"
+
+    ChildMessage:
+      properties:
+        id:
+          type: string
+          title: Id
+        role:
+          $ref: '#/components/schemas/ChatRole'
+        content:
+          type: string
+          title: Content
+      type: object
+      required:
+        - id
+        - role
+        - content
+      title: ChildMessage
+    Chunk:
+      properties:
+        chunk_id:
+          type: string
+          title: Chunk Id
+        text:
+          type: string
+          title: Text
+        metadata:
+          $ref: '#/components/schemas/ChunkMeta'
+      type: object
+      required:
+        - chunk_id
+        - text
+        - metadata
+      title: Chunk
+    ChunkMeta:
+      properties:
+        doc_name:
+          type: string
+          title: Doc Name
+        image_path:
+          type: string
+          title: Image Path
+          default: ''
+        content_type:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Content Type
+        parentPageIdx:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Parentpageidx
+        pageIdx:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Pageidx
+      type: object
+      required:
+        - doc_name
+      title: ChunkMeta
+    EmbeddingModel:
+      properties:
+        name:
+          type: string
+          title: Name
+        model_name:
+          type: string
+          title: Model Name
+        deployment_name:
+          type: string
+          title: Deployment Name
+        embedding_size:
+          type: integer
+          title: Embedding Size
+      type: object
+      required:
+        - name
+        - model_name
+        - deployment_name
+        - embedding_size
+      title: EmbeddingModel
+    ErrorResponseWithCode:
+      properties:
+        message:
+          type: string
+          title: Message
+        code:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Code
+      type: object
+      required:
+        - message
+      title: ErrorResponseWithCode
+    GroupInReference:
+      properties:
+        id:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Id
+        name:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Name
+      type: object
+      required:
+        - id
+        - name
+      title: GroupInReference
+    Indexing:
+      properties:
+        chunk_size:
+          type: integer
+          exclusiveMinimum: true
+          title: Chunk Size
+      type: object
+      required:
+        - chunk_size
+      title: Indexing
+    LLM:
+      properties:
+        language:
+          $ref: '#/components/schemas/Language'
+      type: object
+      required:
+        - language
+      title: LLM
+    Language:
+      type: string
+      enum:
+        - auto-detect
+        - ja
+        - en
+      title: Language
+    MessageCreate:
+      properties:
+        config:
+          anyOf:
+            - $ref: '#/components/schemas/ChatConfig'
+          nullable: true
+        role:
+          $ref: '#/components/schemas/ChatRole'
+          default: user
+        content:
+          type: string
+          title: Content
+        parent_id:
+          anyOf:
+            - type: string
+            - type: string
+              format: uuid
+              nullable: true
+          title: Parent Id
+        attachment_ids:
+          items:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+          type: array
+          title: Attachment Ids
+          default: []
+      type: object
+      required:
+        - content
+      title: MessageCreate
+    MessageCreate3.2:
+      properties:
+        config:
+          anyOf:
+            - $ref: '#/components/schemas/ChatConfig'
+            - type: 'null'
+        content:
+          type: string
+          minLength: 1
+          title: Content
+        parent_id:
+          anyOf:
+            - type: string
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Parent Id
+        attachment_ids:
+          items:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+          type: array
+          maxItems: 10
+          title: Attachment Ids
+          default: []
+        collection_ids:
+          items:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+          type: array
+          title: Collection Ids
+          default: []
+        reference_ids:
+          items:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+          type: array
+          title: Reference Ids
+          default: []
+      type: object
+      required:
+        - content
+      title: MessageCreate
+    MessageResponse:
+      properties:
+        content:
+          type: string
+          title: Content
+        role:
+          $ref: '#/components/schemas/ChatRole'
+        parent_id:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Parent Id
+        feedback:
+          $ref: '#/components/schemas/UserFeedback'
+          default: neutral
+        id:
+          type: string
+          title: Id
+        attachments:
+          anyOf:
+            - items:
+                $ref: '#/components/schemas/AttachmentResponse'
+              type: array
+              nullable: true
+          title: Attachments
+        references:
+          anyOf:
+            - items:
+                $ref: '#/components/schemas/ReferenceResponse'
+              type: array
+              nullable: true
+          title: References
+        chunks:
+          anyOf:
+            - items:
+                $ref: '#/components/schemas/Chunk'
+              type: array
+              nullable: true
+          title: Chunks
+        mapping_evidence:
+          anyOf:
+            - additionalProperties:
+                type: string
+              type: object
+              nullable: true
+          title: Mapping Evidence
+        children:
+          items:
+            $ref: '#/components/schemas/ChildMessage'
+          type: array
+          title: Children
+          default: []
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+        - content
+        - role
+        - id
+        - created_at
+        - updated_at
+      title: MessageResponse
+    ReferenceAttribute:
+      type: string
+      enum:
+        - basic
+        - faq
+        - dictionary
+      title: ReferenceAttribute
+    ReferenceAttribute3.2:
+      type: string
+      enum:
+        - basic
+        - faq
+        - dictionary
+      title: ReferenceAttribute
+    ReferenceCategory:
+      type: string
+      enum:
+        - reference
+        - supplemental
+      title: ReferenceCategory
+    ReferenceList:
+      properties:
+        total:
+          type: integer
+          title: Total
+        items:
+          items:
+            $ref: '#/components/schemas/ReferenceWithoutChat'
+          type: array
+          title: Items
+      type: object
+      required:
+        - total
+        - items
+      title: ReferenceList
+    ReferenceList3.2:
+      properties:
+        total:
+          type: integer
+          title: Total
+        items:
+          items:
+            $ref: '#/components/schemas/ReferenceWithoutChat3.2'
+          type: array
+          title: Items
+      type: object
+      required:
+        - total
+        - items
+      title: ReferenceList
+    ReferenceWithoutChat:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        content_type:
+          type: string
+          title: Content Type
+        size:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Size
+        uri:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Uri
+        extension:
+          type: string
+          title: Extension
+        status:
+          $ref: '#/components/schemas/ReferenceStatus'
+        collections:
+          items:
+            $ref: '#/components/schemas/app__core__models__collection__CollectionMinimal'
+          type: array
+          title: Collections
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+        updated_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+      type: object
+      required:
+        - id
+        - name
+        - content_type
+        - extension
+        - status
+        - collections
+        - created_at
+        - updated_at
+        - created_by
+      title: ReferenceWithoutChat
+    ReferenceWithoutChat3.2:
+      title: ReferenceWithoutChat
+      type: object
+      required:
+        - id
+        - name
+        - content_type
+        - extension
+        - status
+        - attribute
+        - category
+        - collections
+        - created_at
+        - updated_at
+        - created_by
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        content_type:
+          type: string
+          title: Content Type
+        size:
+          anyOf:
+            - type: integer
+          nullable: true
+          title: Size
+        uri:
+          anyOf:
+            - type: string
+          nullable: true
+          title: Uri
+        extension:
+          type: string
+          title: Extension
+        status:
+          $ref: "#/components/schemas/ReferenceStatus"
+        attribute:
+          $ref: "#/components/schemas/ReferenceAttribute"
+        category:
+          $ref: "#/components/schemas/ReferenceCategory"
+        collections:
+          type: array
+          title: Collections
+          items:
+            $ref: "#/components/schemas/app__core__models__collection__CollectionMinimal"
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: "#/components/schemas/UserMinimal"
+          nullable: true
+        updated_by:
+          anyOf:
+            - $ref: "#/components/schemas/UserMinimal"
+          nullable: true
+
+
+    ReferenceResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        content_type:
+          type: string
+          title: Content Type
+        size:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Size
+        uri:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Uri
+        extension:
+          type: string
+          title: Extension
+        status:
+          $ref: '#/components/schemas/ReferenceStatus'
+        collections:
+          items:
+            $ref: '#/components/schemas/app__core__models__collection__CollectionMinimal'
+          type: array
+          title: Collections
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+        updated_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+      type: object
+      required:
+        - id
+        - name
+        - content_type
+        - extension
+        - status
+        - collections
+        - created_at
+        - updated_at
+        - created_by
+      title: ReferenceResponse
+    ReferenceResponse3.2:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        content_type:
+          type: string
+          title: Content Type
+        size:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Size
+        uri:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Uri
+        extension:
+          type: string
+          title: Extension
+        status:
+          $ref: '#/components/schemas/ReferenceStatus'
+        attribute:
+          $ref: '#/components/schemas/ReferenceAttribute'
+        category:
+          $ref: '#/components/schemas/ReferenceCategory'
+        collections:
+          items:
+            $ref: '#/components/schemas/app__core__models__collection__CollectionMinimal'
+          type: array
+          title: Collections
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+        updated_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+      type: object
+      required:
+        - id
+        - name
+        - content_type
+        - extension
+        - status
+        - attribute
+        - category
+        - collections
+        - created_at
+        - updated_at
+        - created_by
+      title: ReferenceResponse
+    ReferenceResponseZip:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        content_type:
+          type: string
+          title: Content Type
+        size:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Size
+        uri:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Uri
+        extension:
+          type: string
+          title: Extension
+        status:
+          $ref: '#/components/schemas/ReferenceStatus'
+        collections:
+          items:
+            $ref: '#/components/schemas/app__core__models__collection__CollectionMinimal'
+          type: array
+          title: Collections
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+        updated_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+        results:
+          items:
+            type: object
+          type: array
+          title: Results
+          default: []
+      type: object
+      required:
+        - id
+        - name
+        - content_type
+        - extension
+        - status
+        - collections
+        - created_at
+        - updated_at
+        - created_by
+      title: ReferenceResponseZip
+    ReferenceResponseZip3.2:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        content_type:
+          type: string
+          title: Content Type
+        size:
+          anyOf:
+          - type: integer
+            nullable: true
+          title: Size
+        uri:
+          anyOf:
+          - type: string
+            nullable: true
+          title: Uri
+        extension:
+          type: string
+          title: Extension
+        status:
+          "$ref": "#/components/schemas/ReferenceStatus"
+        attribute:
+          "$ref": "#/components/schemas/ReferenceAttribute"
+        category:
+          "$ref": "#/components/schemas/ReferenceCategory"
+        collections:
+          items:
+            "$ref": "#/components/schemas/app__core__models__collection__CollectionMinimal"
+          type: array
+          title: Collections
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+          - "$ref": "#/components/schemas/UserMinimal"
+          nullable: true
+        updated_by:
+          anyOf:
+          - "$ref": "#/components/schemas/UserMinimal"
+          nullable: true
+        results:
+          items:
+            type: object
+          type: array
+          title: Results
+          default: []
+      type: object
+      required:
+      - id
+      - name
+      - content_type
+      - extension
+      - status
+      - attribute
+      - category
+      - collections
+      - created_at
+      - updated_at
+      - created_by
+      title: ReferenceResponseZip
+
+    ReferenceStatus:
+      type: string
+      enum:
+        - created
+        - indexing
+        - indexed
+        - error
+      title: ReferenceStatus
+    ReferenceWithGroup:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        content_type:
+          type: string
+          title: Content Type
+        size:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Size
+        uri:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Uri
+        extension:
+          type: string
+          title: Extension
+        status:
+          $ref: '#/components/schemas/ReferenceStatus'
+        collections:
+          items:
+            $ref: '#/components/schemas/app__core__models__collection__CollectionMinimal'
+          type: array
+          title: Collections
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        created_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+        updated_by:
+          anyOf:
+            - $ref: '#/components/schemas/UserMinimal'
+          nullable: true
+        group:
+          $ref: '#/components/schemas/GroupInReference'
+      type: object
+      required:
+        - id
+        - name
+        - content_type
+        - extension
+        - status
+        - collections
+        - created_at
+        - updated_at
+        - created_by
+        - group
+      title: ReferenceWithGroup
+    ReferenceWithGroupList:
+      properties:
+        total:
+          type: integer
+          title: Total
+        items:
+          items:
+            $ref: '#/components/schemas/ReferenceWithGroup'
+          type: array
+          title: Items
+      type: object
+      required:
+        - total
+        - items
+      title: ReferenceWithGroupList
+    RerankItem:
+      properties:
+        rank:
+          type: integer
+          title: Rank
+        score:
+          type: number
+          title: Score
+        document:
+          type: string
+          title: Document
+      type: object
+      required:
+        - rank
+        - score
+        - document
+      title: RerankItem
+    Role:
+      type: string
+      enum:
+        - SystemAdmin
+        - Admin
+        - User
+      title: Role
+    Section:
+      properties:
+        companyName:
+          type: string
+          title: Companyname
+        parentDocName:
+          type: string
+          title: Parentdocname
+          default: ''
+        parentPageIdx:
+          type: integer
+          title: Parentpageidx
+          default: 0
+        sectionIdx:
+          type: integer
+          title: Sectionidx
+          default: 0
+        currentIndex:
+          type: integer
+          title: Currentindex
+          default: 0
+        sectionHeading:
+          type: string
+          title: Sectionheading
+          default: ''
+        title:
+          type: string
+          title: Title
+          default: ''
+        text:
+          type: string
+          title: Text
+          default: ''
+        pageHeader:
+          type: string
+          title: Pageheader
+          default: ''
+        pageFooter:
+          type: string
+          title: Pagefooter
+          default: ''
+        uniIdx:
+          type: string
+          title: Uniidx
+          default: ''
+        vectordbIds:
+          items:
+            type: string
+          type: array
+          title: Vectordbids
+      type: object
+      required:
+        - companyName
+      title: Section
+    TableAttributes:
+      properties:
+        bbox:
+          anyOf:
+            - items:
+                anyOf:
+                  - type: string
+                  - type: integer
+              type: array
+            - $ref: '#/components/schemas/BoundingBox'
+          nullable: true
+          title: Bbox
+        path:
+          type: string
+          title: Path
+      type: object
+      required:
+        - path
+      title: TableAttributes
+    TableCell:
+      properties:
+        container_number:
+          type: integer
+          title: Container Number
+        text:
+          type: string
+          title: Text
+        row_indices:
+          items:
+            type: integer
+          type: array
+          title: Row Indices
+        col_indices:
+          items:
+            type: integer
+          type: array
+          title: Col Indices
+        col_header:
+          type: boolean
+          title: Col Header
+        projected_row_header:
+          type: boolean
+          title: Projected Row Header
+        attributes:
+          $ref: '#/components/schemas/Attributes'
+      type: object
+      required:
+        - container_number
+        - text
+        - row_indices
+        - col_indices
+        - col_header
+        - projected_row_header
+        - attributes
+      title: TableCell
+    UserAISettings:
+      properties:
+        indexing:
+          anyOf:
+            - $ref: '#/components/schemas/Indexing'
+          nullable: true
+        llm:
+          anyOf:
+            - $ref: '#/components/schemas/LLM'
+          nullable: true
+      type: object
+      title: UserAISettings
+    UserAISettingsResponse:
+      properties:
+        indexing:
+          anyOf:
+            - $ref: '#/components/schemas/Indexing'
+          nullable: true
+        llm:
+          anyOf:
+            - $ref: '#/components/schemas/LLM'
+          nullable: true
+      type: object
+      title: UserAISettingsResponse
+    UserAuthActivity:
+      properties:
+        user_id:
+          type: string
+          title: User Id
+        username:
+          type: string
+          title: Username
+        display_name:
+          type: string
+          title: Display Name
+        last_login:
+          anyOf:
+            - type: string
+              format: date-time
+              nullable: true
+          title: Last Login
+        last_logout:
+          anyOf:
+            - type: string
+              format: date-time
+              nullable: true
+          title: Last Logout
+      type: object
+      required:
+        - user_id
+        - username
+        - display_name
+      title: UserAuthActivity
+    UserFeedback:
+      type: string
+      enum:
+        - like
+        - dislike
+        - neutral
+      title: UserFeedback
+    UserMinimal:
+      properties:
+        id:
+          type: string
+          title: Id
+        username:
+          type: string
+          title: Username
+        display_name:
+          type: string
+          title: Display Name
+      type: object
+      required:
+        - id
+        - username
+        - display_name
+      title: UserMinimal
+    UserResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        username:
+          type: string
+          title: Username
+        last_name:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Last Name
+        first_name:
+          type: string
+          title: First Name
+        display_name:
+          type: string
+          title: Display Name
+        role:
+          $ref: '#/components/schemas/Role'
+        language:
+          $ref: '#/components/schemas/Language'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        last_login:
+          anyOf:
+            - type: string
+              format: date-time
+              nullable: true
+          title: Last Login
+        force_password_change:
+          type: boolean
+          title: Force Password Change
+          default: false
+        # ai_settings:
+        #   anyOf:
+        #     - $ref: '#/components/schemas/UserAISettingsResponse'
+        #       nullable: true
+      type: object
+      required:
+        - id
+        - username
+        - last_name
+        - first_name
+        - display_name
+        - role
+        - language
+        - created_at
+        - updated_at
+      title: UserResponse
+    UserSettings:
+      properties:
+        secret:
+          anyOf:
+            - type: string
+              nullable: true
+          title: Secret
+        counter:
+          anyOf:
+            - type: integer
+              nullable: true
+          title: Counter
+        counter_expired_timestamp:
+          anyOf:
+            - type: number
+              nullable: true
+          title: Counter Expired Timestamp
+      type: object
+      title: UserSettings
+    app__core__models__collection__CollectionMinimal:
+      properties:
+        name:
+          type: string
+          title: Name
+        id:
+          type: string
+          title: Id
+      type: object
+      required:
+        - name
+        - id
+      title: CollectionMinimal
+  securitySchemes:
+    MyHTTPBearer:
+      type: http
+      description: |
+
+        Bearer Authentication, see more at [the official documentation](https://swagger.io/docs/specification/authentication/bearer-authentication/).
+
+        The bearer token could be retrieved upon successfully logging in at [/api/v3/auth/login/](/docs#/auth/login_api_v3_auth_login__post).
+
+        Follow these steps:
+        - login at [POST /api/v3/auth/login/](/docs#/auth/login_api_v3_auth_login__post).
+        - retrieve the token from the `access_token` field.
+        - paste the token here, then `Authorize`.
+      scheme: bearer
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
