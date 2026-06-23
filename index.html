@@ -122,9 +122,6 @@
         border: 1px solid var(--color-border);
         border-radius: var(--radius);
         padding: 24px;
-        cursor: pointer;
-        text-decoration: none;
-        color: inherit;
         display: flex;
         flex-direction: column;
         gap: 12px;
@@ -216,17 +213,23 @@
       }
 
       .card-cta {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         gap: 6px;
         font-size: 0.82rem;
         font-weight: 500;
         color: var(--color-accent);
         margin-top: 4px;
-        transition: gap var(--transition);
+        text-decoration: none;
+        cursor: pointer;
+        align-self: flex-start;
+        transition: gap var(--transition), color var(--transition);
       }
 
-      .api-card:hover .card-cta { gap: 10px; }
+      .card-cta:hover {
+        gap: 10px;
+        color: #7ab0ff;
+      }
 
       .card-cta svg {
         width: 14px;
@@ -319,9 +322,10 @@
       }
 
       function buildCard(api) {
-        var a = document.createElement('a');
-        a.className = 'api-card';
-        a.href = 'swagger.html?url=' + encodeURIComponent(api.file);
+        var div = document.createElement('div');
+        div.className = 'api-card';
+
+        var href = 'swagger.html?url=' + encodeURIComponent(api.file);
 
         var badgeHtml = api.badge
           ? '<span class="badge ' + badgeClass(api.badge) + '">'
@@ -329,7 +333,7 @@
               + '</span>'
           : '';
 
-        a.innerHTML =
+        div.innerHTML =
           '<div class="card-header">'
           + '<span class="card-title">' + api.title + '</span>'
           + '<span class="card-version">' + api.version + '</span>'
@@ -338,15 +342,15 @@
               ? '<div class="card-badges">' + badgeHtml + '</div>'
               : '')
           + '<p class="card-description">' + api.description + '</p>'
-          + '<span class="card-cta">'
+          + '<a class="card-cta" href="' + href + '">'
           + 'Open Docs'
           + '<svg viewBox="0 0 24 24">'
           + '<line x1="5" y1="12" x2="19" y2="12"/>'
           + '<polyline points="12 5 19 12 12 19"/>'
           + '</svg>'
-          + '</span>';
+          + '</a>';
 
-        return a;
+        return div;
       }
 
       fetch('apis.json')
