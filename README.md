@@ -1,58 +1,97 @@
-# How to host Swagger API documentation with GitHub Pages
-[<img alt="The blog of Peter Evans: How to Host Swagger Documentation With Github Pages" title="View blog post" src="https://peterevans.dev/img/blog-published-badge.svg">](https://peterevans.dev/posts/how-to-host-swagger-docs-with-github-pages/)
+# SR-API-Package — API Documentation
 
-This repository is a template for using the [Swagger UI](https://github.com/swagger-api/swagger-ui) to dynamically generate beautiful documentation for your API and host it for free with GitHub Pages.
+Interactive API documentation for **Super RAG API**, hosted on GitHub Pages via Swagger UI.
 
-The template will periodically auto-update the Swagger UI dependency and create a pull request. See the [GitHub Actions workflow here](.github/workflows/update-swagger.yml).
+- **Live site:** https://cinnamon.github.io/SR-API-Package/
+- **Stack:** GitHub Pages + [Swagger UI](https://github.com/swagger-api/swagger-ui) (auto-updated daily via CI)
 
-The example API specification used by this repository can be seen hosted at [https://peter-evans.github.io/swagger-github-pages](https://peter-evans.github.io/swagger-github-pages/).
+---
 
-## Steps to use this template
+## Repository structure
 
-1. Click the `Use this template` button above to create a new repository from this template.
+```
+SR-API-Package/
+├── apis.json               ← homepage config — add/hide specs here
+├── index.html              ← home page (do not edit)
+├── swagger.html            ← Swagger UI viewer (do not edit)
+├── swagger.yaml            ← active spec (loaded by default)
+├── SR-3.4-CwDTCAE.yaml
+├── SR-3.3.yaml
+├── SR-3.2.yaml
+├── SR-3.0.yaml
+├── dist/                   ← Swagger UI assets (managed by CI)
+└── .github/workflows/
+    └── update-swagger.yml  ← daily auto-update workflow
+```
 
-2. Go to the settings for your repository at `https://github.com/{github-username}/{repository-name}/settings` and enable GitHub Pages.
+---
 
-    ![Headers](/screenshots/swagger-github-pages.png?raw=true)
-    
-3. Browse to the Swagger documentation at `https://{github-username}.github.io/{repository-name}/`.
+## How to add a new spec
 
+### Step 1 — Copy the YAML file to the repo root
 
-## Steps to manually configure in your own repository
+```bash
+cp path/to/SR-3.5.yaml .
+git add SR-3.5.yaml
+git commit -m "add SR-3.5 spec"
+git push
+```
 
-1. Download the latest stable release of the Swagger UI [here](https://github.com/swagger-api/swagger-ui/releases).
+### Step 2 — Register it in `apis.json`
 
-2. Extract the contents and copy the "dist" directory to the root of your repository.
+Open `apis.json` and add a new entry to the array:
 
-3. Move the file "index.html" from the directory "dist" to the root of your repository.
-    ```
-    mv dist/index.html .
-    ```
-    
-4. Copy the YAML specification file for your API to the root of your repository.
+```json
+{
+  "id": "sr-3.5",
+  "title": "Super RAG API — SR 3.5",
+  "version": "v3.5.0",
+  "badge": "Latest",
+  "file": "SR-3.5.yaml",
+  "description": "Confluence Page: https://..."
+}
+```
 
-5. Edit [dist/swagger-initializer.js](dist/swagger-initializer.js) and change the `url` property to reference your local YAML file. 
-    ```javascript
-        window.ui = SwaggerUIBundle({
-            url: "swagger.yaml",
-        ...
-    ```
-    Then fix any references to files in the "dist" directory.
-    ```html
-    ...
-    <link rel="stylesheet" type="text/css" href="dist/swagger-ui.css" >
-    <link rel="icon" type="image/png" href="dist/favicon-32x32.png" sizes="32x32" />
-    <link rel="icon" type="image/png" href="dist/favicon-16x16.png" sizes="16x16" />    
-    ...
-    <script src="dist/swagger-ui-bundle.js"> </script>
-    <script src="dist/swagger-ui-standalone-preset.js"> </script>    
-    ...
-    ```
-    
-6. Go to the settings for your repository at `https://github.com/{github-username}/{repository-name}/settings` and enable GitHub Pages.
+| Field | Description |
+|---|---|
+| `id` | Unique identifier (kebab-case) |
+| `title` | Display title on the home page card |
+| `version` | Version label shown on the card |
+| `badge` | `"Latest"` (green) · any string (purple) · `null` (no badge) |
+| `file` | Filename of the YAML in the repo root |
+| `description` | Short description or Confluence link shown on the card |
 
-    ![Headers](/screenshots/swagger-github-pages.png?raw=true)
-    
-7. Browse to the Swagger documentation at `https://{github-username}.github.io/{repository-name}/`.
+> The order of entries in the array determines the display order on the home page.
 
-   The example API specification used by this repository can be seen hosted at [https://peter-evans.github.io/swagger-github-pages](https://peter-evans.github.io/swagger-github-pages/).
+---
+
+## How to update the active spec (`swagger.yaml`)
+
+`swagger.yaml` is the fallback spec loaded when opening `swagger.html`
+without a `?url=` parameter.
+
+```bash
+cp SR-3.5.yaml swagger.yaml
+git add swagger.yaml
+git commit -m "update active spec to SR-3.5"
+git push
+```
+
+---
+
+## How to hide a spec from the home page
+
+Remove the corresponding object from `apis.json` and push. The YAML
+file remains in the repo and is still accessible via a direct URL
+(`swagger.html?url=SR-3.x.yaml`), but will no longer appear on the
+home page.
+
+---
+
+## Swagger UI auto-update
+
+The CI workflow (`.github/workflows/update-swagger.yml`) runs daily
+and opens a pull request when a new Swagger UI release is available.
+Merging the PR updates the `dist/` assets and `swagger.html`.
+
+`index.html` and `apis.json` are **never touched** by the CI workflow.
