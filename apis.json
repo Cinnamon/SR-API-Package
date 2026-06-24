@@ -5,7 +5,7 @@
     "version": "v3.4.0",
     "badge": "Partial",
     "file": "SR-3.4-CwDTCAE.yaml",
-    "description": "Confluence Page: https://cinnamon-ai.atlassian.net/wiki/x/FgABCAE"
+    "description": "[SR3.4-API] Endpoints need to be exposed/updated beside endpoints covered in API Enhancement features\nConfluence Page: https://cinnamon-ai.atlassian.net/wiki/x/FgABCAE"
   },
   {
     "id": "sr-3.3",
