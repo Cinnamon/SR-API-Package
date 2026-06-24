@@ -452,6 +452,100 @@
                   $ref: '#/components/schemas/ErrorResponseWithCode'
             description: Unprocessable Entity
 
+    /api/v3/ui/config/web-search-policy/:
+      get:
+        tags:
+          - Config endpoints
+        summary: Get Web Search Config
+        description: Get global web search configuration.
+        operationId: get_web_search_config_api_v3_ui_config_web_search_policy__get
+        responses:
+          "200":
+            description: Successful Response
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/WebSearchConfigResponse'
+          "401":
+            description: Unauthorized
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+                example:
+                  message: invalid access token
+                  code: InvalidAccessTokenError
+          "403":
+            description: Forbidden
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+                example:
+                  message: not authenticated
+                  code: UnauthenticatedError
+          "422":
+            description: Unprocessable Entity
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+                example:
+                  message: 'body.field1.field2: field required, ...'
+                  code: ValidationError
+        security:
+          - MyHTTPBearer: [ ]
+      put:
+        tags:
+          - Config endpoints
+        summary: Update Web Search Config
+        description: Enable or disable global web search.
+        operationId: update_web_search_config_api_v3_ui_config_web_search_policy__put
+        requestBody:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebSearchConfigUpdate'
+          required: true
+        responses:
+          "200":
+            description: Successful Response
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/WebSearchConfigResponse'
+          "401":
+            description: Unauthorized
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+                example:
+                  message: invalid access token
+                  code: InvalidAccessTokenError
+          "403":
+            description: Forbidden
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+                example:
+                  message: not authenticated
+                  code: UnauthenticatedError
+          "422":
+            description: Unprocessable Entity
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+                example:
+                  message: 'body.field1.field2: field required, ...'
+                  code: ValidationError
+        security:
+          - MyHTTPBearer:
+              - config:create
+              - config:update
+
     # --- SR 3.4: User role management ---
     /api/v3.4/users/{user_id}/role/:
       patch:
@@ -561,6 +655,26 @@
             title: Web Search Enabled
             description: Enable or disable web search feature
         title: WebSearchEnabledUpdate
+      WebSearchConfigResponse:
+        properties:
+          system_web_search_allowed:
+            type: boolean
+            title: System Web Search Allowed
+            description: If true, web search features are enabled
+        type: object
+        required:
+          - system_web_search_allowed
+        title: WebSearchConfigResponse
+      WebSearchConfigUpdate:
+        properties:
+          system_web_search_allowed:
+            type: boolean
+            title: System Web Search Allowed
+            description: Enable or disable global web search features
+        type: object
+        required:
+          - system_web_search_allowed
+        title: WebSearchConfigUpdate
       UserResponse:
         properties:
           id:
