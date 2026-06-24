@@ -21,8 +21,10 @@
       window.onload = function () {
         var params = new URLSearchParams(window.location.search);
         var yamlUrl = params.get('url') || 'swagger.yaml';
+        var sep = yamlUrl.indexOf('?') === -1 ? '?' : '&';
+        var bustUrl = yamlUrl + sep + '_=' + Date.now();
         window.ui = SwaggerUIBundle({
-          url: yamlUrl,
+          url: bustUrl,
           dom_id: '#swagger-ui',
           deepLinking: true,
           presets: [
