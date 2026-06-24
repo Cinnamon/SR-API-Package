@@ -1,0 +1,963 @@
+openapi: 3.0.0
+info:
+  title: EasyRAG production API
+  description: '
+
+    # API Specification
+
+
+    ## Status Codes
+
+
+    APIs return status codes based on the result. Below are the status codes and their
+    meanings.
+
+
+    ### Response Codes for Successful Execution
+
+
+    If the process finishes without any issues, the response will have one of the
+    following status codes:
+
+
+    | HTTP Status Code | Status Name | Description |
+
+    | --- | --- | --- |
+
+    | 200 | OK | The request was successful. |
+
+    | 201 | Created | The request was successful, and a new resource was created.
+    |
+
+    | 204 | No Content | The request was successful, but there is no content to return.
+    |
+
+
+    ### Response Codes for Client Errors
+
+
+    The following table lists the response codes for errors caused by client-side
+    issues, such as invalid request data.
+
+
+    | HTTP Status Code | Status Name | Description |
+
+    | --- | --- | --- |
+
+    | 400 | Bad Request | The request is invalid or malformed. |
+
+    | 403 | Forbidden | The request is authenticated but lacks the necessary permissions.
+    |
+
+    | 404 | Not Found | The specified resource could not be found. |
+
+    | 405 | Method Not Allowed | The request method (GET, POST, PUT, PATCH, DELETE)
+    is not supported for this endpoint. |
+
+    | 409 | Conflict | The specified resource already exists. |
+
+    | 422 | Unprocessable Entity | The request is well-formed but contains invalid
+    data. |
+
+
+    ### Response Codes for Server Errors
+
+
+    The following table lists the response codes for errors caused by server-side
+    issues.
+
+
+    | HTTP Status Code | Status Name | Description |
+
+    | --- | --- | --- |
+
+    | 500 | Internal Server Error | The server encountered an unexpected condition
+    that prevented it from fulfilling the request. |
+
+    '
+  version: 2.0.0
+paths:
+  /api/v3/config/api-keys/:
+    get:
+      tags:
+      - Config endpoints
+      summary: Get Api Key Config
+      description: 'Get the current API key configuration.
+
+
+        Returns settings that control API key behavior such as:
+
+        - self_management_only: If users can only manage own keys
+
+        - delete_sa_only: If only SystemAdmin can delete keys
+
+        - rotation_grace_hours: Grace period during key rotation, default to 24
+
+        - default_expiration_days: Default TTL for new keys, default to null
+
+        - max_keys_per_user: Maximum active keys per user, default to 10'
+      operationId: get_api_key_config_api_v3_config_api_keys__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyConfigResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+      security:
+      - MyHTTPBearer: []
+    put:
+      tags:
+      - Config endpoints
+      summary: Update Api Key Config
+      description: 'Update API key configuration.
+
+
+        Only SystemAdmin can update API key configuration.'
+      operationId: update_api_key_config_api_v3_config_api_keys__put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKeyConfigUpdate'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyConfigResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+      security:
+      - MyHTTPBearer: []
+  /api/v3/api-keys/:
+    post:
+      tags:
+      - API Key endpoints
+      summary: Create Api Key
+      description: 'Create a new API key.
+
+
+        The full API key value is returned ONLY in this response.
+
+        Store it securely - it cannot be retrieved again.'
+      operationId: create_api_key_api_v3_api_keys__post
+      security:
+      - MyHTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKeyCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyCreatedResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+    get:
+      tags:
+      - API Key endpoints
+      summary: List Api Keys
+      description: 'List API keys visible to the current user.
+
+
+        - SystemAdmin: Can see all keys
+
+        - Admin: Can see own keys + keys of users in their groups
+
+        - User: Can see only own keys'
+      operationId: list_api_keys_api_v3_api_keys__get
+      security:
+      - MyHTTPBearer: []
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/APIKeyStatus'
+          - type: 'null'
+          title: Status
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: User Id
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyListResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+  /api/v3/api-keys/{api_key_id}/:
+    get:
+      tags:
+      - API Key endpoints
+      summary: Get Api Key
+      description: Get details of a specific API key.
+      operationId: get_api_key_api_v3_api_keys__api_key_id___get
+      security:
+      - MyHTTPBearer: []
+      parameters:
+      - name: api_key_id
+        in: path
+        required: true
+        schema:
+          anyOf:
+          - type: string
+          - type: string
+            format: uuid
+          title: Api Key Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+    patch:
+      tags:
+      - API Key endpoints
+      summary: Update Api Key
+      description: Update an API key's name or scopes.
+      operationId: update_api_key_api_v3_api_keys__api_key_id___patch
+      security:
+      - MyHTTPBearer: []
+      parameters:
+      - name: api_key_id
+        in: path
+        required: true
+        schema:
+          anyOf:
+          - type: string
+          - type: string
+            format: uuid
+          title: Api Key Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKeyUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+    delete:
+      tags:
+      - API Key endpoints
+      summary: Delete Api Key
+      description: 'Delete an API key.
+
+
+        Permission depends on configuration:
+
+        - If delete_sa_only=True: Only SystemAdmin can delete
+
+        - If delete_sa_only=False: Owner/Admin/SA can delete'
+      operationId: delete_api_key_api_v3_api_keys__api_key_id___delete
+      security:
+      - MyHTTPBearer: []
+      parameters:
+      - name: api_key_id
+        in: path
+        required: true
+        schema:
+          anyOf:
+          - type: string
+          - type: string
+            format: uuid
+          title: Api Key Id
+      responses:
+        '204':
+          description: Successful Response
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+  /api/v3/api-keys/{api_key_id}/rotate/:
+    post:
+      tags:
+      - API Key endpoints
+      summary: Rotate Api Key
+      description: 'Rotate an API key.
+
+
+        Creates a new key and keeps both keys valid during the grace period.
+
+        After the grace period, the old key will be deactivated.'
+      operationId: rotate_api_key_api_v3_api_keys__api_key_id__rotate__post
+      security:
+      - MyHTTPBearer: []
+      parameters:
+      - name: api_key_id
+        in: path
+        required: true
+        schema:
+          anyOf:
+          - type: string
+          - type: string
+            format: uuid
+          title: Api Key Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyRotateResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+  /api/v3/api-keys/{api_key_id}/deactivate/:
+    post:
+      tags:
+      - API Key endpoints
+      summary: Deactivate Api Key
+      description: 'Deactivate an API key immediately.
+
+
+        Deactivated keys cannot be used for authentication but
+
+        remain in the system for audit purposes.'
+      operationId: deactivate_api_key_api_v3_api_keys__api_key_id__deactivate__post
+      security:
+      - MyHTTPBearer: []
+      parameters:
+      - name: api_key_id
+        in: path
+        required: true
+        schema:
+          anyOf:
+          - type: string
+          - type: string
+            format: uuid
+          title: Api Key Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+components:
+  schemas:
+    APIKeyRotateResponse:
+      properties:
+        new_key:
+          $ref: '#/components/schemas/NewKey'
+        old_key:
+          $ref: '#/components/schemas/OldKey'
+        grace_period_hours:
+          type: integer
+          title: Grace Period Hours
+      type: object
+      required:
+      - new_key
+      - old_key
+      - grace_period_hours
+      title: APIKeyRotateResponse
+      description: Response payload when rotating an API key.
+    OldKey:
+      properties:
+        id:
+          type: string
+          title: Id
+        key_prefix:
+          type: string
+          title: Key Prefix
+        status:
+          $ref: '#/components/schemas/APIKeyStatus'
+        deactivates_at:
+          type: string
+          format: date-time
+          title: Deactivates At
+      type: object
+      required:
+      - id
+      - key_prefix
+      - status
+      - deactivates_at
+      title: OldKey
+      description: Old key info returned during rotation.
+    NewKey:
+      properties:
+        id:
+          type: string
+          title: Id
+        key:
+          type: string
+          title: Key
+        key_prefix:
+          type: string
+          title: Key Prefix
+        status:
+          $ref: '#/components/schemas/APIKeyStatus'
+      type: object
+      required:
+      - id
+      - key
+      - key_prefix
+      - status
+      title: NewKey
+      description: New key info returned during rotation.
+    APIKeyUpdate:
+      properties:
+        name:
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
+          title: Name
+        scopes:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Scopes
+      type: object
+      title: APIKeyUpdate
+      description: Request payload for updating an API key.
+    APIKeyResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        key_prefix:
+          type: string
+          title: Key Prefix
+        user_id:
+          type: string
+          title: User Id
+        status:
+          $ref: '#/components/schemas/APIKeyStatus'
+        scopes:
+          items:
+            type: string
+          type: array
+          title: Scopes
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+        last_used_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Used At
+        created_by_user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created By User Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - name
+      - key_prefix
+      - user_id
+      - status
+      - scopes
+      - expires_at
+      - last_used_at
+      - created_by_user_id
+      - created_at
+      - updated_at
+      title: APIKeyResponse
+      description: Response payload for an API key (without the full key value).
+    APIKeyListResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/APIKeyResponse'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        limit:
+          type: integer
+          title: Limit
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - limit
+      title: APIKeyListResponse
+      description: Response payload for listing API keys with pagination.
+    APIKeyStatus:
+      type: string
+      enum:
+      - active
+      - deactivated
+      title: APIKeyStatus
+      description: Enum for API key status.
+    APIKeyCreatedResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        key:
+          type: string
+          title: Key
+          description: Full API key - ONLY shown once at creation time
+        key_prefix:
+          type: string
+          title: Key Prefix
+        user_id:
+          type: string
+          title: User Id
+        status:
+          $ref: '#/components/schemas/APIKeyStatus'
+        scopes:
+          items:
+            type: string
+          type: array
+          title: Scopes
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - name
+      - key
+      - key_prefix
+      - user_id
+      - status
+      - scopes
+      - expires_at
+      - created_at
+      title: APIKeyCreatedResponse
+      description: 'Response payload when creating a new API key.
+
+
+        This includes the full key value which is only shown once.'
+    APIKeyCreate:
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          title: Name
+          description: Name/label for the key
+        user_id:
+          anyOf:
+          - type: string
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: User Id
+          description: User ID to create key for (defaults to current user)
+        scopes:
+          items:
+            type: string
+          type: array
+          title: Scopes
+          description: Permission scopes (empty = inherit all user permissions)
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+          description: Optional expiration datetime
+      type: object
+      required:
+      - name
+      title: APIKeyCreate
+      description: Request payload for creating a new API key.
+    APIKeyConfigUpdate:
+      properties:
+        self_management_only:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Self Management Only
+        delete_sa_only:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Delete Sa Only
+        rotation_grace_hours:
+          anyOf:
+          - type: integer
+            exclusiveMinimum: 0
+          - type: 'null'
+          title: Rotation Grace Hours
+        default_expiration_days:
+          anyOf:
+          - type: integer
+            exclusiveMinimum: 0
+          - type: 'null'
+          title: Default Expiration Days
+        max_keys_per_user:
+          anyOf:
+          - type: integer
+            exclusiveMinimum: 0
+          - type: 'null'
+          title: Max Keys Per User
+      type: object
+      title: APIKeyConfigUpdate
+      description: Request payload for updating API key configuration.
+    ErrorResponseWithCode:
+      properties:
+        message:
+          type: string
+          title: Message
+        code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Code
+      type: object
+      required:
+      - message
+      title: ErrorResponseWithCode
+    APIKeyConfigResponse:
+      properties:
+        self_management_only:
+          type: boolean
+          title: Self Management Only
+          description: If true, users can only manage their own API keys
+        delete_sa_only:
+          type: boolean
+          title: Delete Sa Only
+          description: If true, only SystemAdmin can delete API keys
+        rotation_grace_hours:
+          type: integer
+          title: Rotation Grace Hours
+          description: Hours both old and new keys remain valid during rotation
+        default_expiration_days:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Default Expiration Days
+          description: Default TTL for new keys in days (null = no expiry)
+        max_keys_per_user:
+          type: integer
+          title: Max Keys Per User
+          description: Maximum number of active API keys per user
+      type: object
+      required:
+      - self_management_only
+      - delete_sa_only
+      - rotation_grace_hours
+      - default_expiration_days
+      - max_keys_per_user
+      title: APIKeyConfigResponse
+      description: Response payload for API key configuration.
+  securitySchemes:
+    MyHTTPBearer:
+      type: http
+      description: '
+
+        Bearer Authentication, see more at [the official documentation](https://swagger.io/docs/specification/authentication/bearer-authentication/).
+
+
+        The bearer token could be retrieved upon successfully logging in at [/api/v3/auth/login/](/docs#/auth/login_api_v3_auth_login__post).
+
+
+        Follow these steps:
+
+        - login at [POST /api/v3/auth/login/](/docs#/auth/login_api_v3_auth_login__post).
+
+        - retrieve the token from the `access_token` field.
+
+        - paste the token here, then `Authorize`.
+
+        '
+      scheme: bearer
