@@ -50,7 +50,109 @@ info:
 paths:
 
 
-  # --- SR 3.4: Assistant-bound collections (FR2) ---
+  # --- SR 3.4: Assistant discovery (FR1) ---
+  /api/v3.4/assistants/:
+    get:
+      tags:
+        - Assistants 3.4
+      summary: List Assistants
+      description: |
+        List assistants accessible within the given group or tenant scope.
+        Requires authorization. Data is gathered from the backend per group/tenant.
+      operationId: list_assistants_api_v3_4_assistants__get
+      security:
+        - MyHTTPBearer: []
+      parameters:
+        - name: group_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+          description: Optional group scope; when omitted, tenant scope is used.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantListResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+  /api/v3.4/assistants/{assistant_id}/:
+    get:
+      tags:
+        - Assistants 3.4
+      summary: Get Assistant by ID
+      description: |
+        Retrieve assistant details by assistant_id, including the list of
+        associated collections; each collection contains its reference_ids.
+      operationId: get_assistant_api_v3_4_assistants__assistant_id___get
+      security:
+        - MyHTTPBearer: []
+      parameters:
+        - name: assistant_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Assistant Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantDetail'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: assistant {assistant_id} not found
+                code: AssistantNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+
+# --- SR 3.4: Assistant-bound collections (FR2) ---
   /api/v3.4/chats/{chat_id}/messages/:
     post:
       tags:
@@ -68,11 +170,10 @@ paths:
           assistant (assistant-bound collections). When `collection_ids` is
           provided, server uses those collections. Behavior MUST be deterministic.
 
-        **Search mode (SR 3.4):** The optional `search_mode` field is a list
-        selecting the retrieval strategies. Allowed item values are
-        `internal_search` and `web_search`. When the list is empty or the
-        field is null/omitted, the server SHALL fall back to
-        `["internal_search"]`.
+        **Search mode (SR 3.4):** The optional `web_search_mode` field is a
+        string selecting the retrieval strategy. Allowed values are
+        `internal_only`, `web_only`, and `internal_and_web`. When the field
+        is null/omitted, the server SHALL fall back to `internal_only`.
       operationId: create_new_message_api_v3_4_chats__chat_id__messages__post
       security:
         - MyHTTPBearer: []
@@ -359,6 +460,239 @@ paths:
           description: Unprocessable Entity
 
 
+  # --- SR 3.4: Image retrieval (FR3) ---
+  /api/v3.4/images/:
+    post:
+      tags:
+        - Images 3.4
+      summary: Retrieve single image
+      description: |
+        Returns the image binary for an image path (e.g. S3 path) that appears
+        in SR API responses (e.g. attributes.path in document-extract,
+        imagePath in Diagram). The path is sent in the request body.
+        Supports caching (Cache-Control / ETag). Authorization required.
+      operationId: get_image_api_v3_4_images__post
+      security:
+        - MyHTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImagePathRequest'
+      responses:
+        '200':
+          description: Image binary
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: image not found
+                code: ImageNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+  /api/v3.4/images/download:
+    post:
+      tags:
+        - Images 3.4
+      summary: Download multiple images as zip
+      description: |
+        Returns a zip file containing the requested images by path/URI.
+        Supports caching. Authorization required. Response Content-Type
+        application/zip; optional Content-Disposition filename.
+      operationId: download_images_api_v3_4_images_download_post
+      security:
+        - MyHTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImagePathsRequest'
+      responses:
+        '200':
+          description: Zip file containing requested images
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
+  /api/v3.4/references/{reference_id}/images:
+    get:
+      tags:
+        - Images 3.4
+      summary: Download all images of a reference
+      description: |
+        Returns a zip file containing all images associated with the specified
+        reference_id. Caching and authorization required.
+      operationId: get_reference_images_api_v3_4_references__reference_id__images_get
+      security:
+        - MyHTTPBearer: []
+      parameters:
+        - name: reference_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Reference Id
+      responses:
+        '200':
+          description: Zip file containing all images for the reference
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: reference not found
+                code: ReferenceNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+
+  # --- SR 3.4: Reference chunks (FR4) ---
+  /api/v3.4/references/{reference_id}/chunks:
+    get:
+      tags:
+        - Reference Chunks 3.4
+      summary: Get all chunks of a document
+      description: |
+        Retrieve all chunks for the specified reference_id in document order.
+        Each element in ``items`` uses the same ``label`` + ``properties``
+        component format as ``POST /api/v3.3/actions/chunking/`` so v3.3
+        clients can reuse existing parsers. Caching and authorization required.
+      operationId: get_reference_chunks_api_v3_4_references__reference_id__chunks_get
+      security:
+        - MyHTTPBearer: []
+      parameters:
+        - name: reference_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: Reference Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferenceChunksResponse'
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not authenticated
+                code: UnauthenticatedError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: reference not found
+                code: ReferenceNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+
   # --- SR 3.4: Web search feature flag config ---
   /api/v3.4/config/web-search-enabled/:
     get:
@@ -457,6 +791,94 @@ paths:
           description: Unprocessable Entity
 
   # --- SR 3.4: User role management ---
+  /api/v3.4/users/{user_id}/role/warnings/:
+    get:
+      tags:
+        - Users
+      summary: Get Role Change Warnings
+      description: Return sync-collection warnings for a proposed role change.
+      operationId: get_role_change_warnings_api_v3_4_users__user_id__role_warnings__get
+      security:
+        - MyHTTPBearer:
+            - 'user:update'
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+            title: User Id
+        - name: new_role
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/Role'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/app__api__v3__payload__users__UserResponseWithGroup'
+              example:
+                id: a56bff68b1294b9c9d23bd64764d2a99
+                username: groupadmin@example.com
+                last_name: Admin
+                first_name: Group
+                display_name: Admin Group
+                role: Admin
+                language: en
+                created_at: '2025-02-07T04:30:10.759370Z'
+                updated_at: '2025-02-10T07:32:52.025864Z'
+                last_login: '2025-02-07T09:17:38.334283Z'
+                force_password_change: false
+                ai_settings:
+                  indexing:
+                    chunk_size: 1
+                  llm:
+                    language: auto-detect
+                groups:
+                  - name: New general user group
+                    id: 78b89043a8e34122a352783079f5c17b
+        '401':
+          content:
+            application/json:
+              example:
+                message: invalid access token
+                code: InvalidAccessTokenError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              example:
+                message: not enough permission to perform this action
+                code: NoPermissionError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              example:
+                message: user id {userid} not found
+                code: UserNotFoundError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Not Found
+        '422':
+          content:
+            application/json:
+              example:
+                message: 'body.field1.field2: field required, ...'
+                code: ValidationError
+              schema:
+                $ref: '#/components/schemas/ErrorResponseWithCode'
+          description: Unprocessable Entity
   /api/v3.4/users/{user_id}/role/:
     patch:
       tags:
@@ -1288,31 +1710,30 @@ components:
           title: Reference Ids
           default: []
       title: MessageCreate3.2
-    SearchMode:
+    WebSearchMode:
       type: string
       enum:
-        - internal_search
-        - web_search
-      title: SearchMode
+        - internal_only
+        - web_only
+        - internal_and_web
+      title: WebSearchMode
       description: |
-        A single retrieval strategy. `internal_search` queries the configured
-        internal collections; `web_search` queries the web.
+        Retrieval strategy. `internal_only` queries the configured internal
+        collections only; `web_only` queries the web only;
+        `internal_and_web` queries both sources.
     MessageCreate3.4:
       allOf:
         - $ref: '#/components/schemas/MessageCreate3.2'
         - type: object
           properties:
-            search_mode:
-              type: array
-              items:
-                $ref: '#/components/schemas/SearchMode'
-              title: Search Mode
+            web_search_mode:
+              allOf:
+                - $ref: '#/components/schemas/WebSearchMode'
+              title: Web Search Mode
               description: |
-                Optional list of retrieval strategies. When the list is empty
-                or the field is null/omitted, the server SHALL fall back to
-                `["internal_search"]`.
-              default:
-                - internal_search
+                Optional retrieval strategy. When the field is null/omitted,
+                the server SHALL fall back to `internal_only`.
+              default: internal_only
       title: MessageCreate3.4
     ChatWithMessagesResponse3.2:
       title: ChatWithMessagesResponse
@@ -1446,16 +1867,14 @@ components:
         - $ref: '#/components/schemas/MessageResponse'
         - type: object
           properties:
-            search_mode:
-              type: array
-              items:
-                $ref: '#/components/schemas/SearchMode'
-              title: Search Mode
+            web_search_mode:
+              allOf:
+                - $ref: '#/components/schemas/WebSearchMode'
+              title: Web Search Mode
               description: |
-                Retrieval strategies used for this message. Falls back to
-                `["internal_search"]` when none were provided at creation.
-              default:
-                - internal_search
+                Retrieval strategy used for this message. Falls back to
+                `internal_only` when none was provided at creation.
+              default: internal_only
       title: MessageResponse3.4
     ChatWithMessagesResponse3.4:
       title: ChatWithMessagesResponse3.4
