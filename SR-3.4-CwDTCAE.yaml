@@ -48,6 +48,7 @@
       - **FR4** Reference chunks: `GET /api/v3.4/references/{reference_id}/chunks `; caching and authorization required.
     version: 3.4.0
   paths:
+  # --- SR 3.4: Assistant-bound collections (FR2) ---
     /api/v3.4/chats/{chat_id}/messages/:
       post:
         tags:
@@ -1155,7 +1156,7 @@
       Role:
         type: string
         enum:
-          - SystemAdmin
+          # - SystemAdmin
           - Admin
           - User
         title: Role
