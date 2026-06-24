@@ -1,2404 +1,1981 @@
-openapi: 3.0.0
-info:
-  title: Super RAG API
-  description: |
+  openapi: 3.0.0
+  info:
+    title: Super RAG API
+    description: |
 
-    # API Specification
+      # API Specification
 
-    ## Status Codes
+      ## Status Codes
 
-    APIs return status codes based on the resChatult. Below are the status codes and their meanings.
+      APIs return status codes based on the resChatult. Below are the status codes and their meanings.
 
-    ### Response Codes for Successful Execution
+      ### Response Codes for Successful Execution
 
-    If the process finishes without any issues, the response will have one of the following status codes:
+      If the process finishes without any issues, the response will have one of the following status codes:
 
-    | HTTP Status Code | Status Name | Description |
-    | --- | --- | --- |
-    | 200 | OK | The request was successful. |
-    | 201 | Created | The request was successful, and a new resource was created. |
-    | 204 | No Content | The request was successful, but there is no content to return. |
+      | HTTP Status Code | Status Name | Description |
+      | --- | --- | --- |
+      | 200 | OK | The request was successful. |
+      | 201 | Created | The request was successful, and a new resource was created. |
+      | 204 | No Content | The request was successful, but there is no content to return. |
 
-    ### Response Codes for Client Errors
+      ### Response Codes for Client Errors
 
-    The following table lists the response codes for errors caused by client-side issues, such as invalid request data.
+      The following table lists the response codes for errors caused by client-side issues, such as invalid request data.
 
-    | HTTP Status Code | Status Name | Description |
-    | --- | --- | --- |
-    | 400 | Bad Request | The request is invalid or malformed. |
-    | 403 | Forbidden | The request is authenticated but lacks the necessary permissions. |
-    | 404 | Not Found | The specified resource could not be found. |
-    | 405 | Method Not Allowed | The request method (GET, POST, PUT, PATCH, DELETE) is not supported for this endpoint. |
-    | 409 | Conflict | The specified resource already exists. |
-    | 422 | Unprocessable Entity | The request is well-formed but contains invalid data. |
+      | HTTP Status Code | Status Name | Description |
+      | --- | --- | --- |
+      | 400 | Bad Request | The request is invalid or malformed. |
+      | 403 | Forbidden | The request is authenticated but lacks the necessary permissions. |
+      | 404 | Not Found | The specified resource could not be found. |
+      | 405 | Method Not Allowed | The request method (GET, POST, PUT, PATCH, DELETE) is not supported for this endpoint. |
+      | 409 | Conflict | The specified resource already exists. |
+      | 422 | Unprocessable Entity | The request is well-formed but contains invalid data. |
 
-    ### Response Codes for Server Errors
+      ### Response Codes for Server Errors
 
-    The following table lists the response codes for errors caused by server-side issues.
+      The following table lists the response codes for errors caused by server-side issues.
 
-    | HTTP Status Code | Status Name | Description |
-    | --- | --- | --- |
-    | 500 | Internal Server Error | The server encountered an unexpected condition that prevented it from fulfilling the request. |
+      | HTTP Status Code | Status Name | Description |
+      | --- | --- | --- |
+      | 500 | Internal Server Error | The server encountered an unexpected condition that prevented it from fulfilling the request. |
 
-    ## SR 3.4 (this spec contains only 3.4 endpoints)
+      ## SR 3.4 (this spec contains only 3.4 endpoints)
 
-    - **FR1** Assistant discovery: `GET /api/v3.4/assistants/`, `GET /api/v3.4/assistants/{assistant_id}/` (list and get by ID with collections; each collection contains reference_ids).
-    - **FR2** Assistant-bound collections: In `POST /api/v3.4/chats/{chat_id}/messages/`, when `collection_ids` is omitted or empty, the server SHALL use the collections assigned to the chat's assistant_id (assistant-bound collections). When provided, server uses the given collection_ids. SR 3.2 (`POST /api/v3.2/chats/{chat_id}/messages/`) requires explicit collection_ids. Same request/response schema for both versions. See SR 3.2 spec for full message endpoint details.
-    - **FR3** Image retrieval: `POST /api/v3.4/images/` (request body contains S3 path), `POST /api/v3.4/images/download`, `GET /api/v3.4/references/{reference_id}/images` (single image, zip of multiple, zip of all images for a reference); caching and authorization required.
-    - **FR4** Reference chunks: `GET /api/v3.4/references/{reference_id}/chunks `; caching and authorization required.
-  version: 3.4.0
-paths:
+      - **FR1** Assistant discovery: `GET /api/v3.4/assistants/`, `GET /api/v3.4/assistants/{assistant_id}/` (list and get by ID with collections; each collection contains reference_ids).
+      - **FR2** Assistant-bound collections: In `POST /api/v3.4/chats/{chat_id}/messages/`, when `collection_ids` is omitted or empty, the server SHALL use the collections assigned to the chat's assistant_id (assistant-bound collections). When provided, server uses the given collection_ids. SR 3.2 (`POST /api/v3.2/chats/{chat_id}/messages/`) requires explicit collection_ids. Same request/response schema for both versions. See SR 3.2 spec for full message endpoint details.
+      - **FR3** Image retrieval: `POST /api/v3.4/images/` (request body contains S3 path), `POST /api/v3.4/images/download`, `GET /api/v3.4/references/{reference_id}/images` (single image, zip of multiple, zip of all images for a reference); caching and authorization required.
+      - **FR4** Reference chunks: `GET /api/v3.4/references/{reference_id}/chunks `; caching and authorization required.
+    version: 3.4.0
+  paths:
 
 
-  # --- SR 3.4: Assistant discovery (FR1) ---
-  /api/v3.4/assistants/:
-    get:
-      tags:
-        - Assistants 3.4
-      summary: List Assistants
-      description: |
-        List assistants accessible within the given group or tenant scope.
-        Requires authorization. Data is gathered from the backend per group/tenant.
-      operationId: list_assistants_api_v3_4_assistants__get
-      security:
-        - MyHTTPBearer: []
-      parameters:
-        - name: group_id
-          in: query
-          required: false
-          schema:
+
+  # --- SR 3.4: Assistant-bound collections (FR2) ---
+    /api/v3.4/chats/{chat_id}/messages/:
+      post:
+        tags:
+          - Chat endpoints 3.4
+        summary: Create New Message
+        description: |
+          Add a new message to a conversation. Same request/response schema as
+          `POST /api/v3.2/chats/{chat_id}/messages/` (see SR 3.2 spec).
+
+          **Collection resolution (SR 3.2 vs SR 3.4):**
+          - **SR 3.2** (`/api/v3.2/...`): Client MUST pass `collection_ids` in the
+            request body. Server uses only the collections explicitly provided.
+          - **SR 3.4** (`/api/v3.4/...`): When `collection_ids` is omitted or
+            empty, the server SHALL use the collections assigned to the chat's
+            assistant (assistant-bound collections). When `collection_ids` is
+            provided, server uses those collections. Behavior MUST be deterministic.
+
+          **Search mode (SR 3.4):** The optional `web_search_mode` field is a
+          string selecting the retrieval strategy. Allowed values are
+          `internal_only`, `web_only`, and `internal_and_web`. When the field
+          is null/omitted, the server SHALL fall back to `internal_only`.
+        operationId: create_new_message_api_v3_4_chats__chat_id__messages__post
+        security:
+          - MyHTTPBearer: []
+        parameters:
+          - name: chat_id
+            in: path
+            required: true
+            schema:
+              anyOf:
+                - type: string
+                - type: string
+                  format: uuid
+              title: Chat Id
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageCreate3.4'
+        responses:
+          '200':
+            content:
+              text/event-stream:
+                schema:
+                  type: string
+                example: |
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"申し"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"訳"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"ありません"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"が"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"、"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"提供"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"された"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"コン"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"テ"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"キ"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"スト"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"には"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"天"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"気"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"に"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"関"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"する"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"情報"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"が"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"含"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"ま"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"れて"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"い"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"ない"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"ため"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"、"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"今日"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"の"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"天"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"気"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"について"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"は"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"お"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"答"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"え"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"でき"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"ません"}]
+
+                  event: chat
+                  data: [{"id":0,"role":"assistant","content":"。"}]
+
+                  event: evidences
+                  data: [{"id":0,"text":"申し訳ありませんが、提供されたコンテキストには天気に関する情報が含まれていないため、今日の天気についてはお答えできません。","mapping":{}}]
+
+                  event: chunks
+                  data: []
+
+                  event: files
+                  data: {"attachments":[],"references":[]}
+            description: OK
+          '201':
+            description: Successful Response
+          '400':
+            content:
+              application/json:
+                examples:
+                  Invalid Parent I D Error:
+                    summary: Invalid Parent I D Error
+                    value:
+                      message: invalid parent ID {parent_id}
+                      code: InvalidParentIDError
+                  Token Limits Exceeded Error:
+                    summary: Token Limits Exceeded Error
+                    value:
+                      message: exceeded token limits for {level}{obj_id}
+                      code: TokenLimitsExceededError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Bad Request
+          '401':
+            content:
+              application/json:
+                example:
+                  message: invalid access token
+                  code: InvalidAccessTokenError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Unauthorized
+          '403':
+            content:
+              application/json:
+                example:
+                  message: not authenticated
+                  code: UnauthenticatedError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Forbidden
+          '404':
+            content:
+              application/json:
+                examples:
+                  Chat Not Found Error:
+                    summary: Chat Not Found Error
+                    value:
+                      message: chat {chat_id} not found
+                      code: ChatNotFoundError
+                  Invalid Attachments Error:
+                    summary: Invalid Attachments Error
+                    value:
+                      message: attachments {attachment_ids} not found or access denied
+                      code: InvalidAttachmentsError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Not Found
+          '413':
+            content:
+              application/json:
+                example:
+                  message: 'max attachments file size exceeded, current size: {current_size}, max size: {max_size}'
+                  code: MaxAttachmentsSizeExceededError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Request Entity Too Large
+          '422':
+            content:
+              application/json:
+                example:
+                  message: 'body.field1.field2: field required, ...'
+                  code: ValidationError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Unprocessable Entity
+
+    /api/v3.4/chats/{chat_id}/:
+      get:
+        tags:
+          - Chat endpoints 3.4
+        summary: Get Chat
+        description: Retrieve conversation details, including messages and evidence
+        operationId: get_chat_api_v3_4_chats__chat_id___get
+        security:
+          - MyHTTPBearer: []
+        parameters:
+          - name: chat_id
+            in: path
+            required: true
+            schema:
+              anyOf:
+                - type: string
+                - type: string
+                  format: uuid
+              title: Chat Id
+        responses:
+          '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ChatWithMessagesResponse3.4'
+          '401':
+            content:
+              application/json:
+                example:
+                  message: invalid access token
+                  code: InvalidAccessTokenError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Unauthorized
+          '403':
+            content:
+              application/json:
+                example:
+                  message: not authenticated
+                  code: UnauthenticatedError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Forbidden
+          '404':
+            content:
+              application/json:
+                example:
+                  message: chat {chat_id} not found
+                  code: ChatNotFoundError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Not Found
+          '422':
+            content:
+              application/json:
+                example:
+                  message: 'body.field1.field2: field required, ...'
+                  code: ValidationError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Unprocessable Entity
+
+    # --- SR 3.4: Web search feature flag config ---
+    /api/v3.4/config/web-search-enabled/:
+      get:
+        tags:
+          - Config endpoints
+        summary: Get Web Search Enabled Config
+        description: Get web search feature flag configuration.
+        operationId: >-
+          get_web_search_enabled_config_api_v3_4_config_web_search_enabled__get
+        security:
+          - MyHTTPBearer: []
+        responses:
+          '200':
+            description: Successful Response
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/WebSearchEnabledResponse'
+          '401':
+            content:
+              application/json:
+                example:
+                  message: invalid access token
+                  code: InvalidAccessTokenError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Unauthorized
+          '403':
+            content:
+              application/json:
+                example:
+                  message: not authenticated
+                  code: UnauthenticatedError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Forbidden
+          '422':
+            content:
+              application/json:
+                example:
+                  message: 'body.field1.field2: field required, ...'
+                  code: ValidationError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Unprocessable Entity
+      put:
+        tags:
+          - Config endpoints
+        summary: Update Web Search Enabled Config
+        description: Enable or disable web search feature.
+        operationId: >-
+          update_web_search_enabled_config_api_v3_4_config_web_search_enabled__put
+        security:
+          - MyHTTPBearer:
+              - 'config:create'
+              - 'config:update'
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebSearchEnabledUpdate'
+        responses:
+          '200':
+            description: Successful Response
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/WebSearchEnabledResponse'
+          '401':
+            content:
+              application/json:
+                example:
+                  message: invalid access token
+                  code: InvalidAccessTokenError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Unauthorized
+          '403':
+            content:
+              application/json:
+                example:
+                  message: not authenticated
+                  code: UnauthenticatedError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Forbidden
+          '422':
+            content:
+              application/json:
+                example:
+                  message: 'body.field1.field2: field required, ...'
+                  code: ValidationError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Unprocessable Entity
+
+    # --- SR 3.4: User role management ---
+    /api/v3.4/users/{user_id}/role/:
+      patch:
+        tags:
+          - Users
+        summary: Change User Role
+        description: Change a user's role and replace their direct permissions.
+        operationId: change_user_role_api_v3_4_users__user_id__role__patch
+        security:
+          - MyHTTPBearer:
+              - 'user:update'
+        parameters:
+          - name: user_id
+            in: path
+            required: true
+            schema:
+              anyOf:
+                - type: string
+                - type: string
+                  format: uuid
+              title: User Id
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleChangePayload'
+        responses:
+          '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/app__api__v3__payload__users__UserResponse'
+                example:
+                  id: 57e1a7a87af0413183b5ea6d8620a222
+                  username: generaluser2@example.com
+                  last_name: New last name
+                  first_name: New first name
+                  display_name: New last name New first name
+                  role: User
+                  language: en
+                  created_at: '2025-02-10T07:43:06.944258Z'
+                  updated_at: '2025-02-10T07:46:17.809532Z'
+                  force_password_change: false
+                  ai_settings:
+                    indexing:
+                      chunk_size: 1
+                    llm:
+                      language: auto-detect
+          '401':
+            content:
+              application/json:
+                example:
+                  message: invalid access token
+                  code: InvalidAccessTokenError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Unauthorized
+          '403':
+            content:
+              application/json:
+                example:
+                  message: not enough permission to perform this action
+                  code: NoPermissionError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Forbidden
+          '404':
+            content:
+              application/json:
+                example:
+                  message: user id {userid} not found
+                  code: UserNotFoundError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Not Found
+          '422':
+            content:
+              application/json:
+                example:
+                  message: 'body.field1.field2: field required, ...'
+                  code: ValidationError
+                schema:
+                  $ref: '#/components/schemas/ErrorResponseWithCode'
+            description: Unprocessable Entity
+
+  components:
+    schemas:
+      WebSearchEnabledResponse:
+        type: object
+        required:
+          - web_search_enabled
+        properties:
+          web_search_enabled:
+            type: boolean
+            title: Web Search Enabled
+            description: If true, web search feature is available
+        title: WebSearchEnabledResponse
+      WebSearchEnabledUpdate:
+        type: object
+        required:
+          - web_search_enabled
+        properties:
+          web_search_enabled:
+            type: boolean
+            title: Web Search Enabled
+            description: Enable or disable web search feature
+        title: WebSearchEnabledUpdate
+      UserResponse:
+        properties:
+          id:
+            type: string
+            title: Id
+          username:
+            type: string
+            title: Username
+          last_name:
+            anyOf:
+              - type: string
+              - nullable: true
+            title: Last Name
+          first_name:
+            type: string
+            title: First Name
+          display_name:
+            type: string
+            title: Display Name
+          role:
+            $ref: '#/components/schemas/Role'
+          language:
+            $ref: '#/components/schemas/Language'
+          created_at:
+            type: string
+            format: date-time
+            title: Created At
+          updated_at:
+            type: string
+            format: date-time
+            title: Updated At
+          last_login:
+            anyOf:
+              - type: string
+                format: date-time
+              - nullable: true
+            title: Last Login
+          force_password_change:
+            type: boolean
+            title: Force Password Change
+            default: false
+        type: object
+        required:
+          - id
+          - username
+          - last_name
+          - first_name
+          - display_name
+          - role
+          - language
+          - created_at
+          - updated_at
+        title: UserResponse
+      AssistantListResponse:
+        type: object
+        required:
+          - total
+          - assistants
+        properties:
+          total:
+            type: integer
+            title: Total
+          assistants:
+            type: array
+            items:
+              $ref: '#/components/schemas/AssistantDetail'
+            title: Assistants
+        title: AssistantListResponse
+      AssistantDetail:
+        type: object
+        properties:
+          id:
+            type: string
+            title: Id
+          name:
+            type: string
+            title: Name
+          group_id:
+            anyOf:
+              - type: string
+                format: uuid
+              - nullable: true
+            title: Group Id
+            description: Group the assistant belongs to; null when tenant-scoped
+          description:
+            type: string
+            title: Description
+            description: Description of the assistant
+          system_prompt:
+            type: string
+            title: System Prompt
+            description: System prompt of the assistant
+          placeholder:
+            type: string
+            title: Placeholder
+            description: Placeholder of the assistant
+          num_interactions_included:
+            type: integer
+            title: Number of Interactions Included
+            description: Number of interactions included in the assistant
+          top_k:
+            type: integer
+            title: Number of top relevant chunks to retrieve
+          collections:
+            type: array
+            items:
+              $ref: '#/components/schemas/AssistantCollection'
+            title: Collections
+            description: Collections assigned to the assistant; references belong to collections
+          created_at:
+            type: string
+            format: date-time
+            title: Created At
+          updated_at:
+            type: string
+            format: date-time
+            title: Updated At
+          created_by:
+            $ref: '#/components/schemas/UserResponse'
+          updated_by:
+            $ref: '#/components/schemas/UserResponse'
+        title: AssistantDetail
+      AssistantCollection:
+        type: object
+        properties:
+          id:
             type: string
             format: uuid
+            title: Collection Id
+          name:
+            type: string
+            title: Name
+            description: Name of the collection
+          reference_ids:
+            type: array
+            items:
+              anyOf:
+                - type: string
+                - type: string
+                  format: uuid
+            title: Reference Ids
+            description: References belonging to this collection
+        title: AssistantCollection
+      ImagePathRequest:
+        type: object
+        required:
+          - path
+        properties:
+          path:
+            type: string
+            title: Path
+            description: Image path (e.g. S3 path) from chunk or document-extract response
+        title: ImagePathRequest
+      ImagePathsRequest:
+        type: object
+        required:
+          - paths
+        properties:
+          paths:
+            type: array
+            items:
+              type: string
+            title: Paths
+            description: List of image paths/URIs from chunk or document-extract response
+        title: ImagePathsRequest
+      ReferenceChunksResponse:
+        type: object
+        required:
+          - items
+        properties:
+          items:
+            type: array
+            items:
+              oneOf:
+                - $ref: '#/components/schemas/DocumentComponent'
+                - $ref: '#/components/schemas/TOCComponent'
+                - $ref: '#/components/schemas/PageComponent'
+                - $ref: '#/components/schemas/SectionComponent'
+                - $ref: '#/components/schemas/TableComponent'
+                - $ref: '#/components/schemas/DiagramComponent'
+                - $ref: '#/components/schemas/UnstructuredComponent'
+                - $ref: '#/components/schemas/FAQComponent'
+                - $ref: '#/components/schemas/DictionaryComponent'
+              discriminator:
+                propertyName: label
+                mapping:
+                  DOCUMENT: '#/components/schemas/DocumentComponent'
+                  TABLEOFCONTENTS: '#/components/schemas/TOCComponent'
+                  PAGE: '#/components/schemas/PageComponent'
+                  SECTION: '#/components/schemas/SectionComponent'
+                  TABLE: '#/components/schemas/TableComponent'
+                  DIAGRAM: '#/components/schemas/DiagramComponent'
+                  FREETEXT: '#/components/schemas/UnstructuredComponent'
+                  FAQ: '#/components/schemas/FAQComponent'
+                  DICTIONARY: '#/components/schemas/DictionaryComponent'
+            title: Items
+            description: Chunks in document order (v3.3 chunking component format)
+        title: ReferenceChunksResponse
+        description: |-
+          Response for GET /references/{reference_id}/chunks. Each element in
+          ``items`` matches the component shape returned by
+          POST /api/v3.3/actions/chunking/.
+      DocumentComponent:
+        properties:
+          label:
+            type: string
+            enum: [DOCUMENT]
+            title: Label
+            default: DOCUMENT
+          properties:
+            $ref: '#/components/schemas/Document'
+        type: object
+        required:
+          - properties
+        title: DocumentComponent
+      Document:
+        properties:
+          reference_id:
+            type: string
+            title: Reference Id
+          doc_type:
+            $ref: '#/components/schemas/DocumentType'
+          text:
+            type: string
+            title: Text
+            default: ''
+          doc_name:
+            type: string
+            title: Doc Name
+            default: ''
+        type: object
+        required:
+          - reference_id
+        title: Document
+      DocumentType:
+        type: string
+        enum:
+          - text
+          - text_with_table_contents
+          - structured
+          - pptx
+          - faq
+          - dictionary
+          - image
+          - others
+        default: structured
+        title: DocumentType
+      TOCComponent:
+        properties:
+          label:
+            type: string
+            enum: [TABLEOFCONTENTS]
+            title: Label
+            default: TABLEOFCONTENTS
+          properties:
+            $ref: '#/components/schemas/TOC'
+        type: object
+        required:
+          - properties
+        title: TOCComponent
+      TOC:
+        properties:
+          companyName:
+            type: string
+            title: Companyname
+          parentDocName:
+            type: string
+            title: Parentdocname
+          text:
+            type: string
+            title: Text
+            default: ''
+          uniIdx:
+            type: string
+            title: Uniidx
+            default: ''
+        type: object
+        required:
+          - companyName
+          - parentDocName
+        title: TOC
+      PageComponent:
+        properties:
+          label:
+            type: string
+            enum: [PAGE]
+            title: Label
+            default: PAGE
+          properties:
+            $ref: '#/components/schemas/kncore__structs__datamodel__Page'
+        type: object
+        required:
+          - properties
+        title: PageComponent
+      kncore__structs__datamodel__Page:
+        properties:
+          page_idx:
+            type: integer
+            title: Page Idx
+            default: 0
+          text:
+            type: string
+            title: Text
+            default: ''
+          reference_id:
+            type: string
+            title: Reference Id
+            default: ''
+          doc_name:
+            type: string
+            title: Doc Name
+            default: ''
+          page_number:
+            type: string
+            title: Page Number
+            default: ''
+          page_name:
+            type: string
+            title: Page Name
+            default: ''
+          page_header:
+            type: string
+            title: Page Header
+            default: ''
+          page_footer:
+            type: string
+            title: Page Footer
+            default: ''
+          title:
+            type: string
+            title: Title
+            default: ''
+          unique_idx:
+            type: string
+            title: Unique Idx
+            default: ''
+        type: object
+        title: Page
+      SectionComponent:
+        properties:
+          label:
+            type: string
+            enum: [SECTION]
+            title: Label
+            default: SECTION
+          properties:
+            $ref: '#/components/schemas/kncore__structs__datamodel__Section'
+        type: object
+        required:
+          - properties
+        title: SectionComponent
+      kncore__structs__datamodel__Section:
+        properties:
+          reference_id:
+            type: string
+            title: Reference Id
+            default: ''
+          doc_name:
+            type: string
+            title: Doc Name
+            default: ''
+          page_idx:
+            type: integer
+            title: Page Idx
+            default: 0
+          section_idx:
+            type: integer
+            title: Section Idx
+            default: 0
+          current_index:
+            type: integer
+            title: Current Index
+            default: 0
+          section_heading:
+            type: string
+            title: Section Heading
+            default: ''
+          title:
+            type: string
+            title: Title
+            default: ''
+          text:
+            type: string
+            title: Text
+            default: ''
+          page_header:
+            type: string
+            title: Page Header
+            default: ''
+          page_footer:
+            type: string
+            title: Page Footer
+            default: ''
+          unique_idx:
+            type: string
+            title: Unique Idx
+            default: ''
+          vectordb_ids:
+            items:
+              type: string
+            type: array
+            title: Vectordb Ids
+        type: object
+        title: Section
+      TableComponent:
+        properties:
+          label:
+            type: string
+            enum: [TABLE]
+            title: Label
+            default: TABLE
+          properties:
+            $ref: '#/components/schemas/kncore__structs__datamodel__Table'
+        type: object
+        required:
+          - properties
+        title: TableComponent
+      kncore__structs__datamodel__Table:
+        properties:
+          reference_id:
+            type: string
+            title: Reference Id
+          doc_name:
+            type: string
+            title: Doc Name
+            default: ''
+          page_idx:
+            type: integer
+            title: Page Idx
+          table_idx:
+            type: integer
+            title: Table Idx
+          text:
+            type: string
+            title: Text
+            default: ''
+          unique_idx:
+            type: string
+            title: Unique Idx
+            default: ''
+          vectordb_ids:
+            items:
+              type: string
+            type: array
+            title: Vectordb Ids
+        type: object
+        required:
+          - reference_id
+          - page_idx
+          - table_idx
+        title: Table
+      DiagramComponent:
+        properties:
+          label:
+            type: string
+            enum: [DIAGRAM]
+            title: Label
+            default: DIAGRAM
+          properties:
+            $ref: '#/components/schemas/Diagram'
+        type: object
+        required:
+          - properties
+        title: DiagramComponent
+      Diagram:
+        properties:
+          companyName:
+            type: string
+            title: Companyname
+          parentDocName:
+            type: string
+            title: Parentdocname
+          parentPageIdx:
+            type: integer
+            title: Parentpageidx
+          diagramIdx:
+            type: integer
+            title: Diagramidx
+          text:
+            type: string
+            title: Text
+            default: ''
+          imagePath:
+            type: string
+            title: Imagepath
+            default: ''
+          uniIdx:
+            type: string
+            title: Uniidx
+            default: ''
+          vectordbIds:
+            items:
+              type: string
+            type: array
+            title: Vectordbids
+            default: []
+        type: object
+        required:
+          - companyName
+          - parentDocName
+          - parentPageIdx
+          - diagramIdx
+        title: Diagram
+      UnstructuredComponent:
+        properties:
+          label:
+            type: string
+            enum: [FREETEXT]
+            title: Label
+            default: FREETEXT
+          properties:
+            $ref: '#/components/schemas/kncore__structs__datamodel__Section'
+        type: object
+        required:
+          - properties
+        title: UnstructuredComponent
+      FAQComponent:
+        properties:
+          label:
+            type: string
+            enum: [FAQ]
+            title: Label
+            default: FAQ
+          properties:
+            $ref: '#/components/schemas/FAQ'
+        type: object
+        required:
+          - properties
+        title: FAQComponent
+      FAQ:
+        properties:
+          faq_idx:
+            type: integer
+            title: Faq Idx
+          text:
+            type: string
+            title: Text
+            default: ''
+          reference_id:
+            type: string
+            title: Reference Id
+            default: ''
+          page_idx:
+            type: integer
+            title: Page Idx
+            default: 0
+          doc_name:
+            type: string
+            title: Doc Name
+            default: ''
+        type: object
+        required:
+          - faq_idx
+        title: FAQ
+      DictionaryComponent:
+        properties:
+          label:
+            type: string
+            enum: [DICTIONARY]
+            title: Label
+            default: DICTIONARY
+          properties:
+            $ref: '#/components/schemas/Dictionary'
+        type: object
+        required:
+          - properties
+        title: DictionaryComponent
+      Dictionary:
+        properties:
+          dictionary_idx:
+            type: integer
+            title: Dictionary Idx
+          text:
+            type: string
+            title: Text
+            default: ''
+          reference_id:
+            type: string
+            title: Reference Id
+            default: ''
+          page_idx:
+            type: integer
+            title: Page Idx
+            default: 0
+          doc_name:
+            type: string
+            title: Doc Name
+            default: ''
+        type: object
+        required:
+          - dictionary_idx
+        title: Dictionary
+      Role:
+        type: string
+        enum:
+          - SystemAdmin
+          - Admin
+          - User
+        title: Role
+      Language:
+        type: string
+        enum:
+          - auto-detect
+          - ja
+          - en
+        title: Language
+      ChatRole:
+        type: string
+        enum:
+          - user
+          - assistant
+        title: ChatRole
+      ChatModel:
+        type: object
+        required:
+          - name
+          - deployment_name
+          - context_length
+        properties:
+          name:
+            type: string
+            title: Name
+          deployment_name:
+            type: string
+            title: Deployment Name
+          context_length:
+            type: integer
+            title: Context Length
+        title: ChatModel
+      EmbeddingModel:
+        type: object
+        required:
+          - name
+          - model_name
+          - deployment_name
+          - embedding_size
+        properties:
+          name:
+            type: string
+            title: Name
+          model_name:
+            type: string
+            title: Model Name
+          deployment_name:
+            type: string
+            title: Deployment Name
+          embedding_size:
+            type: integer
+            title: Embedding Size
+        title: EmbeddingModel
+      ChatConfig:
+        type: object
+        required:
+          - stream
+          - temperature
+        properties:
+          chat_model:
+            anyOf:
+              - $ref: '#/components/schemas/ChatModel'
+              - nullable: true
+          embedding_model:
+            anyOf:
+              - $ref: '#/components/schemas/EmbeddingModel'
+              - nullable: true
+          stream:
+            type: boolean
+            title: Stream
+          temperature:
+            type: number
+            title: Temperature
+        title: ChatConfig
+      MessageCreate3.2:
+        type: object
+        required:
+          - content
+        properties:
+          config:
+            anyOf:
+              - $ref: '#/components/schemas/ChatConfig'
+              - nullable: true
+          content:
+            type: string
+            minLength: 1
+            title: Content
+          parent_id:
+            anyOf:
+              - type: string
+              - type: string
+                format: uuid
+              - nullable: true
+            title: Parent Id
+          attachment_ids:
+            type: array
+            items:
+              anyOf:
+                - type: string
+                - type: string
+                  format: uuid
+            maxItems: 10
+            title: Attachment Ids
+            default: []
+          collection_ids:
+            type: array
+            items:
+              anyOf:
+                - type: string
+                - type: string
+                  format: uuid
+            title: Collection Ids
+            description: |
+              Optional. SR 3.2 requires explicit collection_ids. SR 3.4 when omitted
+              or empty uses assistant-bound collections (assigned to chat's assistant).
+            default: []
+          reference_ids:
+            type: array
+            items:
+              anyOf:
+                - type: string
+                - type: string
+                  format: uuid
+            title: Reference Ids
+            default: []
+        title: MessageCreate3.2
+      WebSearchMode:
+        type: string
+        enum:
+          - internal_only
+          - web_only
+          - internal_and_web
+        title: WebSearchMode
+        description: |
+          Retrieval strategy. `internal_only` queries the configured internal
+          collections only; `web_only` queries the web only;
+          `internal_and_web` queries both sources.
+      MessageCreate3.4:
+        allOf:
+          - $ref: '#/components/schemas/MessageCreate3.2'
+          - type: object
+            properties:
+              web_search_mode:
+                allOf:
+                  - $ref: '#/components/schemas/WebSearchMode'
+                title: Web Search Mode
+                description: |
+                  Optional retrieval strategy. When the field is null/omitted,
+                  the server SHALL fall back to `internal_only`.
+                default: internal_only
+        title: MessageCreate3.4
+      ChatWithMessagesResponse3.2:
+        title: ChatWithMessagesResponse
+        type: object
+        required:
+          - id
+          - title
+          - created_at
+          - updated_at
+          - created_by
+          - references
+          - messages
+        properties:
+          id:
+            type: string
+            title: Id
+          title:
+            type: string
+            title: Title
+          group_id:
+            anyOf:
+              - type: string
             nullable: true
-          description: Optional group scope; when omitted, tenant scope is used.
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AssistantListResponse'
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not authenticated
-                code: UnauthenticatedError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-  /api/v3.4/assistants/{assistant_id}/:
-    get:
-      tags:
-        - Assistants 3.4
-      summary: Get Assistant by ID
-      description: |
-        Retrieve assistant details by assistant_id, including the list of
-        associated collections; each collection contains its reference_ids.
-      operationId: get_assistant_api_v3_4_assistants__assistant_id___get
-      security:
-        - MyHTTPBearer: []
-      parameters:
-        - name: assistant_id
-          in: path
-          required: true
-          schema:
+            title: Group Id
+          assistant_id:
             anyOf:
               - type: string
-              - type: string
-                format: uuid
+            nullable: true
             title: Assistant Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AssistantDetail'
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not authenticated
-                code: UnauthenticatedError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-        '404':
-          content:
-            application/json:
-              example:
-                message: assistant {assistant_id} not found
-                code: AssistantNotFoundError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Not Found
-
-# --- SR 3.4: Assistant-bound collections (FR2) ---
-  /api/v3.4/chats/{chat_id}/messages/:
-    post:
-      tags:
-        - Chat endpoints 3.4
-      summary: Create New Message
-      description: |
-        Add a new message to a conversation. Same request/response schema as
-        `POST /api/v3.2/chats/{chat_id}/messages/` (see SR 3.2 spec).
-
-        **Collection resolution (SR 3.2 vs SR 3.4):**
-        - **SR 3.2** (`/api/v3.2/...`): Client MUST pass `collection_ids` in the
-          request body. Server uses only the collections explicitly provided.
-        - **SR 3.4** (`/api/v3.4/...`): When `collection_ids` is omitted or
-          empty, the server SHALL use the collections assigned to the chat's
-          assistant (assistant-bound collections). When `collection_ids` is
-          provided, server uses those collections. Behavior MUST be deterministic.
-
-        **Search mode (SR 3.4):** The optional `web_search_mode` field is a
-        string selecting the retrieval strategy. Allowed values are
-        `internal_only`, `web_only`, and `internal_and_web`. When the field
-        is null/omitted, the server SHALL fall back to `internal_only`.
-      operationId: create_new_message_api_v3_4_chats__chat_id__messages__post
-      security:
-        - MyHTTPBearer: []
-      parameters:
-        - name: chat_id
-          in: path
-          required: true
-          schema:
+          assistant_name:
             anyOf:
               - type: string
-              - type: string
-                format: uuid
-            title: Chat Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MessageCreate3.4'
-      responses:
-        '200':
+            nullable: true
+            title: Assistant Name
+          created_at:
+            type: string
+            format: date-time
+            title: Created At
+          updated_at:
+            type: string
+            format: date-time
+            title: Updated At
+          created_by:
+            anyOf:
+              - $ref: '#/components/schemas/UserResponse'
+            nullable: true
+          updated_by:
+            anyOf:
+              - $ref: '#/components/schemas/UserResponse'
+            nullable: true
+          references:
+            type: array
+            title: References
+            items:
+              $ref: '#/components/schemas/ReferenceResponse3.2'
+          messages:
+            type: array
+            title: Messages
+            items:
+              $ref: '#/components/schemas/MessageResponse'
+      MessageResponse:
+        type: object
+        required:
+          - content
+          - role
+          - id
+          - created_at
+          - updated_at
+        properties:
           content:
-            text/event-stream:
-              schema:
-                type: string
-              example: |
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"申し"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"訳"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"ありません"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"が"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"、"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"提供"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"された"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"コン"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"テ"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"キ"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"スト"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"には"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"天"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"気"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"に"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"関"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"する"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"情報"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"が"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"含"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"ま"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"れて"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"い"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"ない"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"ため"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"、"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"今日"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"の"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"天"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"気"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"について"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"は"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"お"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"答"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"え"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"でき"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"ません"}]
-
-                event: chat
-                data: [{"id":0,"role":"assistant","content":"。"}]
-
-                event: evidences
-                data: [{"id":0,"text":"申し訳ありませんが、提供されたコンテキストには天気に関する情報が含まれていないため、今日の天気についてはお答えできません。","mapping":{}}]
-
-                event: chunks
-                data: []
-
-                event: files
-                data: {"attachments":[],"references":[]}
-          description: OK
-        '201':
-          description: Successful Response
-        '400':
-          content:
-            application/json:
-              examples:
-                Invalid Parent I D Error:
-                  summary: Invalid Parent I D Error
-                  value:
-                    message: invalid parent ID {parent_id}
-                    code: InvalidParentIDError
-                Token Limits Exceeded Error:
-                  summary: Token Limits Exceeded Error
-                  value:
-                    message: exceeded token limits for {level}{obj_id}
-                    code: TokenLimitsExceededError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Bad Request
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not authenticated
-                code: UnauthenticatedError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-        '404':
-          content:
-            application/json:
-              examples:
-                Chat Not Found Error:
-                  summary: Chat Not Found Error
-                  value:
-                    message: chat {chat_id} not found
-                    code: ChatNotFoundError
-                Invalid Attachments Error:
-                  summary: Invalid Attachments Error
-                  value:
-                    message: attachments {attachment_ids} not found or access denied
-                    code: InvalidAttachmentsError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Not Found
-        '413':
-          content:
-            application/json:
-              example:
-                message: 'max attachments file size exceeded, current size: {current_size}, max size: {max_size}'
-                code: MaxAttachmentsSizeExceededError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Request Entity Too Large
-        '422':
-          content:
-            application/json:
-              example:
-                message: 'body.field1.field2: field required, ...'
-                code: ValidationError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unprocessable Entity
-
-  /api/v3.4/chats/{chat_id}/:
-    get:
-      tags:
-        - Chat endpoints 3.4
-      summary: Get Chat
-      description: Retrieve conversation details, including messages and evidence
-      operationId: get_chat_api_v3_4_chats__chat_id___get
-      security:
-        - MyHTTPBearer: []
-      parameters:
-        - name: chat_id
-          in: path
-          required: true
-          schema:
+            type: string
+            title: Content
+          role:
+            $ref: '#/components/schemas/ChatRole'
+          parent_id:
             anyOf:
               - type: string
-              - type: string
-                format: uuid
-            title: Chat Id
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ChatWithMessagesResponse3.4'
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not authenticated
-                code: UnauthenticatedError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-        '404':
-          content:
-            application/json:
-              example:
-                message: chat {chat_id} not found
-                code: ChatNotFoundError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Not Found
-        '422':
-          content:
-            application/json:
-              example:
-                message: 'body.field1.field2: field required, ...'
-                code: ValidationError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unprocessable Entity
-
-
-  # --- SR 3.4: Image retrieval (FR3) ---
-  /api/v3.4/images/:
-    post:
-      tags:
-        - Images 3.4
-      summary: Retrieve single image
-      description: |
-        Returns the image binary for an image path (e.g. S3 path) that appears
-        in SR API responses (e.g. attributes.path in document-extract,
-        imagePath in Diagram). The path is sent in the request body.
-        Supports caching (Cache-Control / ETag). Authorization required.
-      operationId: get_image_api_v3_4_images__post
-      security:
-        - MyHTTPBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ImagePathRequest'
-      responses:
-        '200':
-          description: Image binary
-          content:
-            image/png:
-              schema:
-                type: string
-                format: binary
-            image/jpeg:
-              schema:
-                type: string
-                format: binary
-            image/gif:
-              schema:
-                type: string
-                format: binary
-            image/webp:
-              schema:
-                type: string
-                format: binary
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not authenticated
-                code: UnauthenticatedError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-        '404':
-          content:
-            application/json:
-              example:
-                message: image not found
-                code: ImageNotFoundError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Not Found
-  /api/v3.4/images/download:
-    post:
-      tags:
-        - Images 3.4
-      summary: Download multiple images as zip
-      description: |
-        Returns a zip file containing the requested images by path/URI.
-        Supports caching. Authorization required. Response Content-Type
-        application/zip; optional Content-Disposition filename.
-      operationId: download_images_api_v3_4_images_download_post
-      security:
-        - MyHTTPBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ImagePathsRequest'
-      responses:
-        '200':
-          description: Zip file containing requested images
-          content:
-            application/zip:
-              schema:
-                type: string
-                format: binary
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not authenticated
-                code: UnauthenticatedError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-        '422':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unprocessable Entity
-  /api/v3.4/references/{reference_id}/images:
-    get:
-      tags:
-        - Images 3.4
-      summary: Download all images of a reference
-      description: |
-        Returns a zip file containing all images associated with the specified
-        reference_id. Caching and authorization required.
-      operationId: get_reference_images_api_v3_4_references__reference_id__images_get
-      security:
-        - MyHTTPBearer: []
-      parameters:
-        - name: reference_id
-          in: path
-          required: true
-          schema:
+                nullable: true
+            title: Parent Id
+          feedback:
+            $ref: '#/components/schemas/UserFeedback'
+            default: neutral
+          id:
+            type: string
+            title: Id
+          attachments:
+            anyOf:
+              - items:
+                  $ref: '#/components/schemas/AttachmentResponse'
+                type: array
+                nullable: true
+            title: Attachments
+          references:
+            anyOf:
+              - items:
+                  $ref: '#/components/schemas/ReferenceResponse'
+                type: array
+                nullable: true
+            title: References
+          chunks:
+            anyOf:
+              - items:
+                  $ref: '#/components/schemas/Chunk'
+                type: array
+                nullable: true
+            title: Chunks
+          mapping_evidence:
+            anyOf:
+              - additionalProperties:
+                  type: string
+                type: object
+                nullable: true
+            title: Mapping Evidence
+          children:
+            items:
+              $ref: '#/components/schemas/ChildMessage'
+            type: array
+            title: Children
+            default: []
+          created_at:
+            type: string
+            format: date-time
+            title: Created At
+          updated_at:
+            type: string
+            format: date-time
+            title: Updated At
+        title: MessageResponse
+      MessageResponse3.4:
+        allOf:
+          - $ref: '#/components/schemas/MessageResponse'
+          - type: object
+            properties:
+              web_search_mode:
+                allOf:
+                  - $ref: '#/components/schemas/WebSearchMode'
+                title: Web Search Mode
+                description: |
+                  Retrieval strategy used for this message. Falls back to
+                  `internal_only` when none was provided at creation.
+                default: internal_only
+        title: MessageResponse3.4
+      ChatWithMessagesResponse3.4:
+        title: ChatWithMessagesResponse3.4
+        type: object
+        required:
+          - id
+          - title
+          - created_at
+          - updated_at
+          - created_by
+          - references
+          - messages
+        properties:
+          id:
+            type: string
+            title: Id
+          title:
+            type: string
+            title: Title
+          group_id:
             anyOf:
               - type: string
-              - type: string
-                format: uuid
-            title: Reference Id
-      responses:
-        '200':
-          description: Zip file containing all images for the reference
-          content:
-            application/zip:
-              schema:
-                type: string
-                format: binary
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not authenticated
-                code: UnauthenticatedError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-        '404':
-          content:
-            application/json:
-              example:
-                message: reference not found
-                code: ReferenceNotFoundError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Not Found
-
-  # --- SR 3.4: Reference chunks (FR4) ---
-  /api/v3.4/references/{reference_id}/chunks:
-    get:
-      tags:
-        - Reference Chunks 3.4
-      summary: Get all chunks of a document
-      description: |
-        Retrieve all chunks for the specified reference_id in document order.
-        Each element in ``items`` uses the same ``label`` + ``properties``
-        component format as ``POST /api/v3.3/actions/chunking/`` so v3.3
-        clients can reuse existing parsers. Caching and authorization required.
-      operationId: get_reference_chunks_api_v3_4_references__reference_id__chunks_get
-      security:
-        - MyHTTPBearer: []
-      parameters:
-        - name: reference_id
-          in: path
-          required: true
-          schema:
+            nullable: true
+            title: Group Id
+          assistant_id:
             anyOf:
               - type: string
-              - type: string
-                format: uuid
-            title: Reference Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReferenceChunksResponse'
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not authenticated
-                code: UnauthenticatedError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-        '404':
-          content:
-            application/json:
-              example:
-                message: reference not found
-                code: ReferenceNotFoundError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Not Found
-
-  # --- SR 3.4: Web search feature flag config ---
-  /api/v3.4/config/web-search-enabled/:
-    get:
-      tags:
-        - Config endpoints
-      summary: Get Web Search Enabled Config
-      description: Get web search feature flag configuration.
-      operationId: >-
-        get_web_search_enabled_config_api_v3_4_config_web_search_enabled__get
-      security:
-        - MyHTTPBearer: []
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WebSearchEnabledResponse'
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not authenticated
-                code: UnauthenticatedError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-        '422':
-          content:
-            application/json:
-              example:
-                message: 'body.field1.field2: field required, ...'
-                code: ValidationError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unprocessable Entity
-    put:
-      tags:
-        - Config endpoints
-      summary: Update Web Search Enabled Config
-      description: Enable or disable web search feature.
-      operationId: >-
-        update_web_search_enabled_config_api_v3_4_config_web_search_enabled__put
-      security:
-        - MyHTTPBearer:
-            - 'config:create'
-            - 'config:update'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/WebSearchEnabledUpdate'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WebSearchEnabledResponse'
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not authenticated
-                code: UnauthenticatedError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-        '422':
-          content:
-            application/json:
-              example:
-                message: 'body.field1.field2: field required, ...'
-                code: ValidationError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unprocessable Entity
-
-  # --- SR 3.4: User role management ---
-  /api/v3.4/users/{user_id}/role/warnings/:
-    get:
-      tags:
-        - Users
-      summary: Get Role Change Warnings
-      description: Return sync-collection warnings for a proposed role change.
-      operationId: get_role_change_warnings_api_v3_4_users__user_id__role_warnings__get
-      security:
-        - MyHTTPBearer:
-            - 'user:update'
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
+            nullable: true
+            title: Assistant Id
+          assistant_name:
             anyOf:
               - type: string
+            nullable: true
+            title: Assistant Name
+          created_at:
+            type: string
+            format: date-time
+            title: Created At
+          updated_at:
+            type: string
+            format: date-time
+            title: Updated At
+          created_by:
+            anyOf:
+              - $ref: '#/components/schemas/UserResponse'
+            nullable: true
+          updated_by:
+            anyOf:
+              - $ref: '#/components/schemas/UserResponse'
+            nullable: true
+          references:
+            type: array
+            title: References
+            items:
+              $ref: '#/components/schemas/ReferenceResponse3.2'
+          messages:
+            type: array
+            title: Messages
+            items:
+              $ref: '#/components/schemas/MessageResponse3.4'
+      ChildMessage:
+        type: object
+        required:
+          - id
+          - role
+          - content
+        properties:
+          id:
+            type: string
+            title: Id
+          role:
+            $ref: '#/components/schemas/ChatRole'
+          content:
+            type: string
+            title: Content
+        title: ChildMessage
+      Chunk:
+        type: object
+        required:
+          - chunk_id
+          - text
+          - metadata
+        properties:
+          chunk_id:
+            type: string
+            title: Chunk Id
+          text:
+            type: string
+            title: Text
+          metadata:
+            $ref: '#/components/schemas/ChunkMeta'
+        title: Chunk
+      ChunkMeta:
+        type: object
+        required:
+          - doc_name
+        properties:
+          doc_name:
+            type: string
+            title: Doc Name
+          image_path:
+            type: string
+            title: Image Path
+            default: ''
+          content_type:
+            anyOf:
               - type: string
-                format: uuid
-            title: User Id
-        - name: new_role
-          in: query
-          required: true
-          schema:
+                nullable: true
+            title: Content Type
+          parentPageIdx:
+            anyOf:
+              - type: integer
+                nullable: true
+            title: Parentpageidx
+          pageIdx:
+            anyOf:
+              - type: integer
+                nullable: true
+            title: Pageidx
+        title: ChunkMeta
+      AttachmentResponse:
+        type: object
+        required:
+          - id
+          - name
+          - content_type
+          - extension
+        properties:
+          id:
+            type: string
+            title: Id
+          name:
+            type: string
+            title: Name
+          content_type:
+            type: string
+            title: Content Type
+          size:
+            anyOf:
+              - type: integer
+                nullable: true
+            title: Size
+          uri:
+            anyOf:
+              - type: string
+                nullable: true
+            title: Uri
+          extension:
+            type: string
+            title: Extension
+        title: AttachmentResponse
+      UserFeedback:
+        type: string
+        enum:
+          - like
+          - dislike
+          - neutral
+        title: UserFeedback
+      ReferenceResponse:
+        type: object
+        required:
+          - id
+          - name
+          - content_type
+          - extension
+          - status
+          - collections
+          - created_at
+          - updated_at
+          - created_by
+        properties:
+          id:
+            type: string
+            title: Id
+          name:
+            type: string
+            title: Name
+          content_type:
+            type: string
+            title: Content Type
+          size:
+            anyOf:
+              - type: integer
+                nullable: true
+            title: Size
+          uri:
+            anyOf:
+              - type: string
+                nullable: true
+            title: Uri
+          extension:
+            type: string
+            title: Extension
+          status:
+            $ref: '#/components/schemas/ReferenceStatus'
+          collections:
+            items:
+              $ref: '#/components/schemas/CollectionMinimal'
+            type: array
+            title: Collections
+          created_at:
+            type: string
+            format: date-time
+            title: Created At
+          updated_at:
+            type: string
+            format: date-time
+            title: Updated At
+          created_by:
+            anyOf:
+              - $ref: '#/components/schemas/UserMinimal'
+            nullable: true
+          updated_by:
+            anyOf:
+              - $ref: '#/components/schemas/UserMinimal'
+            nullable: true
+        title: ReferenceResponse
+      ReferenceResponse3.2:
+        type: object
+        required:
+          - id
+          - name
+          - content_type
+          - extension
+          - status
+          - attribute
+          - category
+          - collections
+          - created_at
+          - updated_at
+          - created_by
+        properties:
+          id:
+            type: string
+            title: Id
+          name:
+            type: string
+            title: Name
+          content_type:
+            type: string
+            title: Content Type
+          size:
+            anyOf:
+              - type: integer
+                nullable: true
+            title: Size
+          uri:
+            anyOf:
+              - type: string
+                nullable: true
+            title: Uri
+          extension:
+            type: string
+            title: Extension
+          status:
+            $ref: '#/components/schemas/ReferenceStatus'
+          attribute:
+            $ref: '#/components/schemas/ReferenceAttribute'
+          category:
+            $ref: '#/components/schemas/ReferenceCategory'
+          collections:
+            items:
+              $ref: '#/components/schemas/CollectionMinimal'
+            type: array
+            title: Collections
+          created_at:
+            type: string
+            format: date-time
+            title: Created At
+          updated_at:
+            type: string
+            format: date-time
+            title: Updated At
+          created_by:
+            anyOf:
+              - $ref: '#/components/schemas/UserMinimal'
+            nullable: true
+          updated_by:
+            anyOf:
+              - $ref: '#/components/schemas/UserMinimal'
+            nullable: true
+        title: ReferenceResponse
+      ReferenceStatus:
+        type: string
+        enum:
+          - created
+          - indexing
+          - indexed
+          - error
+        title: ReferenceStatus
+      ReferenceAttribute:
+        type: string
+        enum:
+          - basic
+          - faq
+          - dictionary
+        title: ReferenceAttribute
+      ReferenceCategory:
+        type: string
+        enum:
+          - reference
+          - supplemental
+        title: ReferenceCategory
+      UserMinimal:
+        type: object
+        required:
+          - id
+          - username
+          - display_name
+        properties:
+          id:
+            type: string
+            title: Id
+          username:
+            type: string
+            title: Username
+          display_name:
+            type: string
+            title: Display Name
+        title: UserMinimal
+      CollectionMinimal:
+        type: object
+        required:
+          - name
+          - id
+        properties:
+          name:
+            type: string
+            title: Name
+          id:
+            type: string
+            title: Id
+        title: CollectionMinimal
+      RoleChangePayload:
+        type: object
+        required:
+          - new_role
+        properties:
+          new_role:
             $ref: '#/components/schemas/Role'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/app__api__v3__payload__users__UserResponseWithGroup'
-              example:
-                id: a56bff68b1294b9c9d23bd64764d2a99
-                username: groupadmin@example.com
-                last_name: Admin
-                first_name: Group
-                display_name: Admin Group
-                role: Admin
-                language: en
-                created_at: '2025-02-07T04:30:10.759370Z'
-                updated_at: '2025-02-10T07:32:52.025864Z'
-                last_login: '2025-02-07T09:17:38.334283Z'
-                force_password_change: false
-                ai_settings:
-                  indexing:
-                    chunk_size: 1
-                  llm:
-                    language: auto-detect
-                groups:
-                  - name: New general user group
-                    id: 78b89043a8e34122a352783079f5c17b
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not enough permission to perform this action
-                code: NoPermissionError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-        '404':
-          content:
-            application/json:
-              example:
-                message: user id {userid} not found
-                code: UserNotFoundError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Not Found
-        '422':
-          content:
-            application/json:
-              example:
-                message: 'body.field1.field2: field required, ...'
-                code: ValidationError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unprocessable Entity
-  /api/v3.4/users/{user_id}/role/:
-    patch:
-      tags:
-        - Users
-      summary: Change User Role
-      description: Change a user's role and replace their direct permissions.
-      operationId: change_user_role_api_v3_4_users__user_id__role__patch
-      security:
-        - MyHTTPBearer:
-            - 'user:update'
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            anyOf:
-              - type: string
-              - type: string
-                format: uuid
-            title: User Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RoleChangePayload'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/app__api__v3__payload__users__UserResponse'
-              example:
-                id: 57e1a7a87af0413183b5ea6d8620a222
-                username: generaluser2@example.com
-                last_name: New last name
-                first_name: New first name
-                display_name: New last name New first name
-                role: User
-                language: en
-                created_at: '2025-02-10T07:43:06.944258Z'
-                updated_at: '2025-02-10T07:46:17.809532Z'
-                force_password_change: false
-                ai_settings:
-                  indexing:
-                    chunk_size: 1
-                  llm:
-                    language: auto-detect
-        '401':
-          content:
-            application/json:
-              example:
-                message: invalid access token
-                code: InvalidAccessTokenError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unauthorized
-        '403':
-          content:
-            application/json:
-              example:
-                message: not enough permission to perform this action
-                code: NoPermissionError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Forbidden
-        '404':
-          content:
-            application/json:
-              example:
-                message: user id {userid} not found
-                code: UserNotFoundError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Not Found
-        '422':
-          content:
-            application/json:
-              example:
-                message: 'body.field1.field2: field required, ...'
-                code: ValidationError
-              schema:
-                $ref: '#/components/schemas/ErrorResponseWithCode'
-          description: Unprocessable Entity
-
-components:
-  schemas:
-    WebSearchEnabledResponse:
-      type: object
-      required:
-        - web_search_enabled
-      properties:
-        web_search_enabled:
-          type: boolean
-          title: Web Search Enabled
-          description: If true, web search feature is available
-      title: WebSearchEnabledResponse
-    WebSearchEnabledUpdate:
-      type: object
-      required:
-        - web_search_enabled
-      properties:
-        web_search_enabled:
-          type: boolean
-          title: Web Search Enabled
-          description: Enable or disable web search feature
-      title: WebSearchEnabledUpdate
-    UserResponse:
-      properties:
-        id:
-          type: string
-          title: Id
-        username:
-          type: string
-          title: Username
-        last_name:
-          anyOf:
-            - type: string
-            - nullable: true
-          title: Last Name
-        first_name:
-          type: string
-          title: First Name
-        display_name:
-          type: string
-          title: Display Name
-        role:
-          $ref: '#/components/schemas/Role'
-        language:
-          $ref: '#/components/schemas/Language'
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-        last_login:
-          anyOf:
-            - type: string
-              format: date-time
-            - nullable: true
-          title: Last Login
-        force_password_change:
-          type: boolean
-          title: Force Password Change
-          default: false
-      type: object
-      required:
-        - id
-        - username
-        - last_name
-        - first_name
-        - display_name
-        - role
-        - language
-        - created_at
-        - updated_at
-      title: UserResponse
-    AssistantListResponse:
-      type: object
-      required:
-        - total
-        - assistants
-      properties:
-        total:
-          type: integer
-          title: Total
-        assistants:
-          type: array
-          items:
-            $ref: '#/components/schemas/AssistantDetail'
-          title: Assistants
-      title: AssistantListResponse
-    AssistantDetail:
-      type: object
-      properties:
-        id:
-          type: string
-          title: Id
-        name:
-          type: string
-          title: Name
-        group_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - nullable: true
-          title: Group Id
-          description: Group the assistant belongs to; null when tenant-scoped
-        description:
-          type: string
-          title: Description
-          description: Description of the assistant
-        system_prompt:
-          type: string
-          title: System Prompt
-          description: System prompt of the assistant
-        placeholder:
-          type: string
-          title: Placeholder
-          description: Placeholder of the assistant
-        num_interactions_included:
-          type: integer
-          title: Number of Interactions Included
-          description: Number of interactions included in the assistant
-        top_k:
-          type: integer
-          title: Number of top relevant chunks to retrieve
-        collections:
-          type: array
-          items:
-            $ref: '#/components/schemas/AssistantCollection'
-          title: Collections
-          description: Collections assigned to the assistant; references belong to collections
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-        created_by:
-          $ref: '#/components/schemas/UserResponse'
-        updated_by:
-          $ref: '#/components/schemas/UserResponse'
-      title: AssistantDetail
-    AssistantCollection:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Collection Id
-        name:
-          type: string
-          title: Name
-          description: Name of the collection
-        reference_ids:
-          type: array
-          items:
-            anyOf:
-              - type: string
-              - type: string
-                format: uuid
-          title: Reference Ids
-          description: References belonging to this collection
-      title: AssistantCollection
-    ImagePathRequest:
-      type: object
-      required:
-        - path
-      properties:
-        path:
-          type: string
-          title: Path
-          description: Image path (e.g. S3 path) from chunk or document-extract response
-      title: ImagePathRequest
-    ImagePathsRequest:
-      type: object
-      required:
-        - paths
-      properties:
-        paths:
-          type: array
-          items:
+        title: RoleChangePayload
+        description: Payload for changing a user's role.
+      GroupResponse:
+        type: object
+        required:
+          - name
+          - id
+        properties:
+          name:
             type: string
-          title: Paths
-          description: List of image paths/URIs from chunk or document-extract response
-      title: ImagePathsRequest
-    ReferenceChunksResponse:
-      type: object
-      required:
-        - items
-      properties:
-        items:
-          type: array
-          items:
-            oneOf:
-              - $ref: '#/components/schemas/DocumentComponent'
-              - $ref: '#/components/schemas/TOCComponent'
-              - $ref: '#/components/schemas/PageComponent'
-              - $ref: '#/components/schemas/SectionComponent'
-              - $ref: '#/components/schemas/TableComponent'
-              - $ref: '#/components/schemas/DiagramComponent'
-              - $ref: '#/components/schemas/UnstructuredComponent'
-              - $ref: '#/components/schemas/FAQComponent'
-              - $ref: '#/components/schemas/DictionaryComponent'
-            discriminator:
-              propertyName: label
-              mapping:
-                DOCUMENT: '#/components/schemas/DocumentComponent'
-                TABLEOFCONTENTS: '#/components/schemas/TOCComponent'
-                PAGE: '#/components/schemas/PageComponent'
-                SECTION: '#/components/schemas/SectionComponent'
-                TABLE: '#/components/schemas/TableComponent'
-                DIAGRAM: '#/components/schemas/DiagramComponent'
-                FREETEXT: '#/components/schemas/UnstructuredComponent'
-                FAQ: '#/components/schemas/FAQComponent'
-                DICTIONARY: '#/components/schemas/DictionaryComponent'
-          title: Items
-          description: Chunks in document order (v3.3 chunking component format)
-      title: ReferenceChunksResponse
-      description: |-
-        Response for GET /references/{reference_id}/chunks. Each element in
-        ``items`` matches the component shape returned by
-        POST /api/v3.3/actions/chunking/.
-    DocumentComponent:
-      properties:
-        label:
-          type: string
-          enum: [DOCUMENT]
-          title: Label
-          default: DOCUMENT
-        properties:
-          $ref: '#/components/schemas/Document'
-      type: object
-      required:
-        - properties
-      title: DocumentComponent
-    Document:
-      properties:
-        reference_id:
-          type: string
-          title: Reference Id
-        doc_type:
-          $ref: '#/components/schemas/DocumentType'
-        text:
-          type: string
-          title: Text
-          default: ''
-        doc_name:
-          type: string
-          title: Doc Name
-          default: ''
-      type: object
-      required:
-        - reference_id
-      title: Document
-    DocumentType:
-      type: string
-      enum:
-        - text
-        - text_with_table_contents
-        - structured
-        - pptx
-        - faq
-        - dictionary
-        - image
-        - others
-      default: structured
-      title: DocumentType
-    TOCComponent:
-      properties:
-        label:
-          type: string
-          enum: [TABLEOFCONTENTS]
-          title: Label
-          default: TABLEOFCONTENTS
-        properties:
-          $ref: '#/components/schemas/TOC'
-      type: object
-      required:
-        - properties
-      title: TOCComponent
-    TOC:
-      properties:
-        companyName:
-          type: string
-          title: Companyname
-        parentDocName:
-          type: string
-          title: Parentdocname
-        text:
-          type: string
-          title: Text
-          default: ''
-        uniIdx:
-          type: string
-          title: Uniidx
-          default: ''
-      type: object
-      required:
-        - companyName
-        - parentDocName
-      title: TOC
-    PageComponent:
-      properties:
-        label:
-          type: string
-          enum: [PAGE]
-          title: Label
-          default: PAGE
-        properties:
-          $ref: '#/components/schemas/kncore__structs__datamodel__Page'
-      type: object
-      required:
-        - properties
-      title: PageComponent
-    kncore__structs__datamodel__Page:
-      properties:
-        page_idx:
-          type: integer
-          title: Page Idx
-          default: 0
-        text:
-          type: string
-          title: Text
-          default: ''
-        reference_id:
-          type: string
-          title: Reference Id
-          default: ''
-        doc_name:
-          type: string
-          title: Doc Name
-          default: ''
-        page_number:
-          type: string
-          title: Page Number
-          default: ''
-        page_name:
-          type: string
-          title: Page Name
-          default: ''
-        page_header:
-          type: string
-          title: Page Header
-          default: ''
-        page_footer:
-          type: string
-          title: Page Footer
-          default: ''
-        title:
-          type: string
-          title: Title
-          default: ''
-        unique_idx:
-          type: string
-          title: Unique Idx
-          default: ''
-      type: object
-      title: Page
-    SectionComponent:
-      properties:
-        label:
-          type: string
-          enum: [SECTION]
-          title: Label
-          default: SECTION
-        properties:
-          $ref: '#/components/schemas/kncore__structs__datamodel__Section'
-      type: object
-      required:
-        - properties
-      title: SectionComponent
-    kncore__structs__datamodel__Section:
-      properties:
-        reference_id:
-          type: string
-          title: Reference Id
-          default: ''
-        doc_name:
-          type: string
-          title: Doc Name
-          default: ''
-        page_idx:
-          type: integer
-          title: Page Idx
-          default: 0
-        section_idx:
-          type: integer
-          title: Section Idx
-          default: 0
-        current_index:
-          type: integer
-          title: Current Index
-          default: 0
-        section_heading:
-          type: string
-          title: Section Heading
-          default: ''
-        title:
-          type: string
-          title: Title
-          default: ''
-        text:
-          type: string
-          title: Text
-          default: ''
-        page_header:
-          type: string
-          title: Page Header
-          default: ''
-        page_footer:
-          type: string
-          title: Page Footer
-          default: ''
-        unique_idx:
-          type: string
-          title: Unique Idx
-          default: ''
-        vectordb_ids:
-          items:
+            title: Name
+          id:
             type: string
-          type: array
-          title: Vectordb Ids
-      type: object
-      title: Section
-    TableComponent:
-      properties:
-        label:
-          type: string
-          enum: [TABLE]
-          title: Label
-          default: TABLE
+            title: Id
+        title: GroupResponse
+      Indexing:
+        type: object
+        required:
+          - chunk_size
         properties:
-          $ref: '#/components/schemas/kncore__structs__datamodel__Table'
-      type: object
-      required:
-        - properties
-      title: TableComponent
-    kncore__structs__datamodel__Table:
-      properties:
-        reference_id:
-          type: string
-          title: Reference Id
-        doc_name:
-          type: string
-          title: Doc Name
-          default: ''
-        page_idx:
-          type: integer
-          title: Page Idx
-        table_idx:
-          type: integer
-          title: Table Idx
-        text:
-          type: string
-          title: Text
-          default: ''
-        unique_idx:
-          type: string
-          title: Unique Idx
-          default: ''
-        vectordb_ids:
-          items:
+          chunk_size:
+            type: integer
+            exclusiveMinimum: 0
+            title: Chunk Size
+        title: Indexing
+      LLM:
+        type: object
+        required:
+          - language
+        properties:
+          language:
+            $ref: '#/components/schemas/Language'
+        title: LLM
+      UserAISettingsResponse:
+        type: object
+        properties:
+          indexing:
+            anyOf:
+              - $ref: '#/components/schemas/Indexing'
+              - nullable: true
+          llm:
+            anyOf:
+              - $ref: '#/components/schemas/LLM'
+              - nullable: true
+        title: UserAISettingsResponse
+      app__api__v3__payload__users__UserResponse:
+        type: object
+        required:
+          - id
+          - username
+          - last_name
+          - first_name
+          - display_name
+          - role
+          - language
+          - created_at
+          - updated_at
+        properties:
+          id:
             type: string
-          type: array
-          title: Vectordb Ids
-      type: object
-      required:
-        - reference_id
-        - page_idx
-        - table_idx
-      title: Table
-    DiagramComponent:
-      properties:
-        label:
-          type: string
-          enum: [DIAGRAM]
-          title: Label
-          default: DIAGRAM
-        properties:
-          $ref: '#/components/schemas/Diagram'
-      type: object
-      required:
-        - properties
-      title: DiagramComponent
-    Diagram:
-      properties:
-        companyName:
-          type: string
-          title: Companyname
-        parentDocName:
-          type: string
-          title: Parentdocname
-        parentPageIdx:
-          type: integer
-          title: Parentpageidx
-        diagramIdx:
-          type: integer
-          title: Diagramidx
-        text:
-          type: string
-          title: Text
-          default: ''
-        imagePath:
-          type: string
-          title: Imagepath
-          default: ''
-        uniIdx:
-          type: string
-          title: Uniidx
-          default: ''
-        vectordbIds:
-          items:
+            title: Id
+          username:
             type: string
-          type: array
-          title: Vectordbids
-          default: []
-      type: object
-      required:
-        - companyName
-        - parentDocName
-        - parentPageIdx
-        - diagramIdx
-      title: Diagram
-    UnstructuredComponent:
-      properties:
-        label:
-          type: string
-          enum: [FREETEXT]
-          title: Label
-          default: FREETEXT
-        properties:
-          $ref: '#/components/schemas/kncore__structs__datamodel__Section'
-      type: object
-      required:
-        - properties
-      title: UnstructuredComponent
-    FAQComponent:
-      properties:
-        label:
-          type: string
-          enum: [FAQ]
-          title: Label
-          default: FAQ
-        properties:
-          $ref: '#/components/schemas/FAQ'
-      type: object
-      required:
-        - properties
-      title: FAQComponent
-    FAQ:
-      properties:
-        faq_idx:
-          type: integer
-          title: Faq Idx
-        text:
-          type: string
-          title: Text
-          default: ''
-        reference_id:
-          type: string
-          title: Reference Id
-          default: ''
-        page_idx:
-          type: integer
-          title: Page Idx
-          default: 0
-        doc_name:
-          type: string
-          title: Doc Name
-          default: ''
-      type: object
-      required:
-        - faq_idx
-      title: FAQ
-    DictionaryComponent:
-      properties:
-        label:
-          type: string
-          enum: [DICTIONARY]
-          title: Label
-          default: DICTIONARY
-        properties:
-          $ref: '#/components/schemas/Dictionary'
-      type: object
-      required:
-        - properties
-      title: DictionaryComponent
-    Dictionary:
-      properties:
-        dictionary_idx:
-          type: integer
-          title: Dictionary Idx
-        text:
-          type: string
-          title: Text
-          default: ''
-        reference_id:
-          type: string
-          title: Reference Id
-          default: ''
-        page_idx:
-          type: integer
-          title: Page Idx
-          default: 0
-        doc_name:
-          type: string
-          title: Doc Name
-          default: ''
-      type: object
-      required:
-        - dictionary_idx
-      title: Dictionary
-    Role:
-      type: string
-      enum:
-        - SystemAdmin
-        - Admin
-        - User
-      title: Role
-    Language:
-      type: string
-      enum:
-        - auto-detect
-        - ja
-        - en
-      title: Language
-    ChatRole:
-      type: string
-      enum:
-        - user
-        - assistant
-      title: ChatRole
-    ChatModel:
-      type: object
-      required:
-        - name
-        - deployment_name
-        - context_length
-      properties:
-        name:
-          type: string
-          title: Name
-        deployment_name:
-          type: string
-          title: Deployment Name
-        context_length:
-          type: integer
-          title: Context Length
-      title: ChatModel
-    EmbeddingModel:
-      type: object
-      required:
-        - name
-        - model_name
-        - deployment_name
-        - embedding_size
-      properties:
-        name:
-          type: string
-          title: Name
-        model_name:
-          type: string
-          title: Model Name
-        deployment_name:
-          type: string
-          title: Deployment Name
-        embedding_size:
-          type: integer
-          title: Embedding Size
-      title: EmbeddingModel
-    ChatConfig:
-      type: object
-      required:
-        - stream
-        - temperature
-      properties:
-        chat_model:
-          anyOf:
-            - $ref: '#/components/schemas/ChatModel'
-            - nullable: true
-        embedding_model:
-          anyOf:
-            - $ref: '#/components/schemas/EmbeddingModel'
-            - nullable: true
-        stream:
-          type: boolean
-          title: Stream
-        temperature:
-          type: number
-          title: Temperature
-      title: ChatConfig
-    MessageCreate3.2:
-      type: object
-      required:
-        - content
-      properties:
-        config:
-          anyOf:
-            - $ref: '#/components/schemas/ChatConfig'
-            - nullable: true
-        content:
-          type: string
-          minLength: 1
-          title: Content
-        parent_id:
-          anyOf:
-            - type: string
-            - type: string
-              format: uuid
-            - nullable: true
-          title: Parent Id
-        attachment_ids:
-          type: array
-          items:
+            title: Username
+          last_name:
             anyOf:
               - type: string
-              - type: string
-                format: uuid
-          maxItems: 10
-          title: Attachment Ids
-          default: []
-        collection_ids:
-          type: array
-          items:
+              - nullable: true
+            title: Last Name
+          first_name:
+            type: string
+            title: First Name
+          display_name:
+            type: string
+            title: Display Name
+          role:
+            $ref: '#/components/schemas/Role'
+          language:
+            $ref: '#/components/schemas/Language'
+          created_at:
+            type: string
+            format: date-time
+            title: Created At
+          updated_at:
+            type: string
+            format: date-time
+            title: Updated At
+          last_login:
             anyOf:
               - type: string
-              - type: string
-                format: uuid
-          title: Collection Ids
-          description: |
-            Optional. SR 3.2 requires explicit collection_ids. SR 3.4 when omitted
-            or empty uses assistant-bound collections (assigned to chat's assistant).
-          default: []
-        reference_ids:
-          type: array
-          items:
+                format: date-time
+              - nullable: true
+            title: Last Login
+          force_password_change:
+            type: boolean
+            title: Force Password Change
+            default: false
+          ai_settings:
+            anyOf:
+              - $ref: '#/components/schemas/UserAISettingsResponse'
+              - nullable: true
+        title: UserResponse
+      app__api__v3__payload__users__UserResponseWithGroup:
+        type: object
+        required:
+          - id
+          - username
+          - last_name
+          - first_name
+          - display_name
+          - role
+          - language
+          - created_at
+          - updated_at
+          - groups
+        properties:
+          id:
+            type: string
+            title: Id
+          username:
+            type: string
+            title: Username
+          last_name:
             anyOf:
               - type: string
+              - nullable: true
+            title: Last Name
+          first_name:
+            type: string
+            title: First Name
+          display_name:
+            type: string
+            title: Display Name
+          role:
+            $ref: '#/components/schemas/Role'
+          language:
+            $ref: '#/components/schemas/Language'
+          created_at:
+            type: string
+            format: date-time
+            title: Created At
+          updated_at:
+            type: string
+            format: date-time
+            title: Updated At
+          last_login:
+            anyOf:
               - type: string
-                format: uuid
-          title: Reference Ids
-          default: []
-      title: MessageCreate3.2
-    WebSearchMode:
-      type: string
-      enum:
-        - internal_only
-        - web_only
-        - internal_and_web
-      title: WebSearchMode
-      description: |
-        Retrieval strategy. `internal_only` queries the configured internal
-        collections only; `web_only` queries the web only;
-        `internal_and_web` queries both sources.
-    MessageCreate3.4:
-      allOf:
-        - $ref: '#/components/schemas/MessageCreate3.2'
-        - type: object
-          properties:
-            web_search_mode:
-              allOf:
-                - $ref: '#/components/schemas/WebSearchMode'
-              title: Web Search Mode
-              description: |
-                Optional retrieval strategy. When the field is null/omitted,
-                the server SHALL fall back to `internal_only`.
-              default: internal_only
-      title: MessageCreate3.4
-    ChatWithMessagesResponse3.2:
-      title: ChatWithMessagesResponse
-      type: object
-      required:
-        - id
-        - title
-        - created_at
-        - updated_at
-        - created_by
-        - references
-        - messages
-      properties:
-        id:
-          type: string
-          title: Id
-        title:
-          type: string
-          title: Title
-        group_id:
-          anyOf:
-            - type: string
-          nullable: true
-          title: Group Id
-        assistant_id:
-          anyOf:
-            - type: string
-          nullable: true
-          title: Assistant Id
-        assistant_name:
-          anyOf:
-            - type: string
-          nullable: true
-          title: Assistant Name
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-        created_by:
-          anyOf:
-            - $ref: '#/components/schemas/UserResponse'
-          nullable: true
-        updated_by:
-          anyOf:
-            - $ref: '#/components/schemas/UserResponse'
-          nullable: true
-        references:
-          type: array
-          title: References
-          items:
-            $ref: '#/components/schemas/ReferenceResponse3.2'
-        messages:
-          type: array
-          title: Messages
-          items:
-            $ref: '#/components/schemas/MessageResponse'
-    MessageResponse:
-      type: object
-      required:
-        - content
-        - role
-        - id
-        - created_at
-        - updated_at
-      properties:
-        content:
-          type: string
-          title: Content
-        role:
-          $ref: '#/components/schemas/ChatRole'
-        parent_id:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Parent Id
-        feedback:
-          $ref: '#/components/schemas/UserFeedback'
-          default: neutral
-        id:
-          type: string
-          title: Id
-        attachments:
-          anyOf:
-            - items:
-                $ref: '#/components/schemas/AttachmentResponse'
-              type: array
-              nullable: true
-          title: Attachments
-        references:
-          anyOf:
-            - items:
-                $ref: '#/components/schemas/ReferenceResponse'
-              type: array
-              nullable: true
-          title: References
-        chunks:
-          anyOf:
-            - items:
-                $ref: '#/components/schemas/Chunk'
-              type: array
-              nullable: true
-          title: Chunks
-        mapping_evidence:
-          anyOf:
-            - additionalProperties:
-                type: string
-              type: object
-              nullable: true
-          title: Mapping Evidence
-        children:
-          items:
-            $ref: '#/components/schemas/ChildMessage'
-          type: array
-          title: Children
-          default: []
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-      title: MessageResponse
-    MessageResponse3.4:
-      allOf:
-        - $ref: '#/components/schemas/MessageResponse'
-        - type: object
-          properties:
-            web_search_mode:
-              allOf:
-                - $ref: '#/components/schemas/WebSearchMode'
-              title: Web Search Mode
-              description: |
-                Retrieval strategy used for this message. Falls back to
-                `internal_only` when none was provided at creation.
-              default: internal_only
-      title: MessageResponse3.4
-    ChatWithMessagesResponse3.4:
-      title: ChatWithMessagesResponse3.4
-      type: object
-      required:
-        - id
-        - title
-        - created_at
-        - updated_at
-        - created_by
-        - references
-        - messages
-      properties:
-        id:
-          type: string
-          title: Id
-        title:
-          type: string
-          title: Title
-        group_id:
-          anyOf:
-            - type: string
-          nullable: true
-          title: Group Id
-        assistant_id:
-          anyOf:
-            - type: string
-          nullable: true
-          title: Assistant Id
-        assistant_name:
-          anyOf:
-            - type: string
-          nullable: true
-          title: Assistant Name
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-        created_by:
-          anyOf:
-            - $ref: '#/components/schemas/UserResponse'
-          nullable: true
-        updated_by:
-          anyOf:
-            - $ref: '#/components/schemas/UserResponse'
-          nullable: true
-        references:
-          type: array
-          title: References
-          items:
-            $ref: '#/components/schemas/ReferenceResponse3.2'
-        messages:
-          type: array
-          title: Messages
-          items:
-            $ref: '#/components/schemas/MessageResponse3.4'
-    ChildMessage:
-      type: object
-      required:
-        - id
-        - role
-        - content
-      properties:
-        id:
-          type: string
-          title: Id
-        role:
-          $ref: '#/components/schemas/ChatRole'
-        content:
-          type: string
-          title: Content
-      title: ChildMessage
-    Chunk:
-      type: object
-      required:
-        - chunk_id
-        - text
-        - metadata
-      properties:
-        chunk_id:
-          type: string
-          title: Chunk Id
-        text:
-          type: string
-          title: Text
-        metadata:
-          $ref: '#/components/schemas/ChunkMeta'
-      title: Chunk
-    ChunkMeta:
-      type: object
-      required:
-        - doc_name
-      properties:
-        doc_name:
-          type: string
-          title: Doc Name
-        image_path:
-          type: string
-          title: Image Path
-          default: ''
-        content_type:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Content Type
-        parentPageIdx:
-          anyOf:
-            - type: integer
-              nullable: true
-          title: Parentpageidx
-        pageIdx:
-          anyOf:
-            - type: integer
-              nullable: true
-          title: Pageidx
-      title: ChunkMeta
-    AttachmentResponse:
-      type: object
-      required:
-        - id
-        - name
-        - content_type
-        - extension
-      properties:
-        id:
-          type: string
-          title: Id
-        name:
-          type: string
-          title: Name
-        content_type:
-          type: string
-          title: Content Type
-        size:
-          anyOf:
-            - type: integer
-              nullable: true
-          title: Size
-        uri:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Uri
-        extension:
-          type: string
-          title: Extension
-      title: AttachmentResponse
-    UserFeedback:
-      type: string
-      enum:
-        - like
-        - dislike
-        - neutral
-      title: UserFeedback
-    ReferenceResponse:
-      type: object
-      required:
-        - id
-        - name
-        - content_type
-        - extension
-        - status
-        - collections
-        - created_at
-        - updated_at
-        - created_by
-      properties:
-        id:
-          type: string
-          title: Id
-        name:
-          type: string
-          title: Name
-        content_type:
-          type: string
-          title: Content Type
-        size:
-          anyOf:
-            - type: integer
-              nullable: true
-          title: Size
-        uri:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Uri
-        extension:
-          type: string
-          title: Extension
-        status:
-          $ref: '#/components/schemas/ReferenceStatus'
-        collections:
-          items:
-            $ref: '#/components/schemas/CollectionMinimal'
-          type: array
-          title: Collections
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-        created_by:
-          anyOf:
-            - $ref: '#/components/schemas/UserMinimal'
-          nullable: true
-        updated_by:
-          anyOf:
-            - $ref: '#/components/schemas/UserMinimal'
-          nullable: true
-      title: ReferenceResponse
-    ReferenceResponse3.2:
-      type: object
-      required:
-        - id
-        - name
-        - content_type
-        - extension
-        - status
-        - attribute
-        - category
-        - collections
-        - created_at
-        - updated_at
-        - created_by
-      properties:
-        id:
-          type: string
-          title: Id
-        name:
-          type: string
-          title: Name
-        content_type:
-          type: string
-          title: Content Type
-        size:
-          anyOf:
-            - type: integer
-              nullable: true
-          title: Size
-        uri:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Uri
-        extension:
-          type: string
-          title: Extension
-        status:
-          $ref: '#/components/schemas/ReferenceStatus'
-        attribute:
-          $ref: '#/components/schemas/ReferenceAttribute'
-        category:
-          $ref: '#/components/schemas/ReferenceCategory'
-        collections:
-          items:
-            $ref: '#/components/schemas/CollectionMinimal'
-          type: array
-          title: Collections
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-        created_by:
-          anyOf:
-            - $ref: '#/components/schemas/UserMinimal'
-          nullable: true
-        updated_by:
-          anyOf:
-            - $ref: '#/components/schemas/UserMinimal'
-          nullable: true
-      title: ReferenceResponse
-    ReferenceStatus:
-      type: string
-      enum:
-        - created
-        - indexing
-        - indexed
-        - error
-      title: ReferenceStatus
-    ReferenceAttribute:
-      type: string
-      enum:
-        - basic
-        - faq
-        - dictionary
-      title: ReferenceAttribute
-    ReferenceCategory:
-      type: string
-      enum:
-        - reference
-        - supplemental
-      title: ReferenceCategory
-    UserMinimal:
-      type: object
-      required:
-        - id
-        - username
-        - display_name
-      properties:
-        id:
-          type: string
-          title: Id
-        username:
-          type: string
-          title: Username
-        display_name:
-          type: string
-          title: Display Name
-      title: UserMinimal
-    CollectionMinimal:
-      type: object
-      required:
-        - name
-        - id
-      properties:
-        name:
-          type: string
-          title: Name
-        id:
-          type: string
-          title: Id
-      title: CollectionMinimal
-    RoleChangePayload:
-      type: object
-      required:
-        - new_role
-      properties:
-        new_role:
-          $ref: '#/components/schemas/Role'
-      title: RoleChangePayload
-      description: Payload for changing a user's role.
-    GroupResponse:
-      type: object
-      required:
-        - name
-        - id
-      properties:
-        name:
-          type: string
-          title: Name
-        id:
-          type: string
-          title: Id
-      title: GroupResponse
-    Indexing:
-      type: object
-      required:
-        - chunk_size
-      properties:
-        chunk_size:
-          type: integer
-          exclusiveMinimum: 0
-          title: Chunk Size
-      title: Indexing
-    LLM:
-      type: object
-      required:
-        - language
-      properties:
-        language:
-          $ref: '#/components/schemas/Language'
-      title: LLM
-    UserAISettingsResponse:
-      type: object
-      properties:
-        indexing:
-          anyOf:
-            - $ref: '#/components/schemas/Indexing'
-            - nullable: true
-        llm:
-          anyOf:
-            - $ref: '#/components/schemas/LLM'
-            - nullable: true
-      title: UserAISettingsResponse
-    app__api__v3__payload__users__UserResponse:
-      type: object
-      required:
-        - id
-        - username
-        - last_name
-        - first_name
-        - display_name
-        - role
-        - language
-        - created_at
-        - updated_at
-      properties:
-        id:
-          type: string
-          title: Id
-        username:
-          type: string
-          title: Username
-        last_name:
-          anyOf:
-            - type: string
-            - nullable: true
-          title: Last Name
-        first_name:
-          type: string
-          title: First Name
-        display_name:
-          type: string
-          title: Display Name
-        role:
-          $ref: '#/components/schemas/Role'
-        language:
-          $ref: '#/components/schemas/Language'
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-        last_login:
-          anyOf:
-            - type: string
-              format: date-time
-            - nullable: true
-          title: Last Login
-        force_password_change:
-          type: boolean
-          title: Force Password Change
-          default: false
-        ai_settings:
-          anyOf:
-            - $ref: '#/components/schemas/UserAISettingsResponse'
-            - nullable: true
-      title: UserResponse
-    app__api__v3__payload__users__UserResponseWithGroup:
-      type: object
-      required:
-        - id
-        - username
-        - last_name
-        - first_name
-        - display_name
-        - role
-        - language
-        - created_at
-        - updated_at
-        - groups
-      properties:
-        id:
-          type: string
-          title: Id
-        username:
-          type: string
-          title: Username
-        last_name:
-          anyOf:
-            - type: string
-            - nullable: true
-          title: Last Name
-        first_name:
-          type: string
-          title: First Name
-        display_name:
-          type: string
-          title: Display Name
-        role:
-          $ref: '#/components/schemas/Role'
-        language:
-          $ref: '#/components/schemas/Language'
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-        last_login:
-          anyOf:
-            - type: string
-              format: date-time
-            - nullable: true
-          title: Last Login
-        force_password_change:
-          type: boolean
-          title: Force Password Change
-          default: false
-        ai_settings:
-          anyOf:
-            - $ref: '#/components/schemas/UserAISettingsResponse'
-            - nullable: true
-        groups:
-          type: array
-          items:
-            $ref: '#/components/schemas/GroupResponse'
-          title: Groups
-      title: UserResponseWithGroup
-    ErrorResponseWithCode:
-      properties:
-        message:
-          type: string
-          title: Message
-        code:
-          anyOf:
-            - type: string
-              nullable: true
-          title: Code
-      type: object
-      required:
-        - message
-      title: ErrorResponseWithCode
-  securitySchemes:
-    MyHTTPBearer:
-      type: http
-      description: |
-        Bearer authentication. Obtain the token via the auth login endpoint,
-        then send it in the Authorization header as Bearer {token}.
-      scheme: bearer
+                format: date-time
+              - nullable: true
+            title: Last Login
+          force_password_change:
+            type: boolean
+            title: Force Password Change
+            default: false
+          ai_settings:
+            anyOf:
+              - $ref: '#/components/schemas/UserAISettingsResponse'
+              - nullable: true
+          groups:
+            type: array
+            items:
+              $ref: '#/components/schemas/GroupResponse'
+            title: Groups
+        title: UserResponseWithGroup
+      ErrorResponseWithCode:
+        properties:
+          message:
+            type: string
+            title: Message
+          code:
+            anyOf:
+              - type: string
+                nullable: true
+            title: Code
+        type: object
+        required:
+          - message
+        title: ErrorResponseWithCode
+    securitySchemes:
+      MyHTTPBearer:
+        type: http
+        description: |
+          Bearer authentication. Obtain the token via the auth login endpoint,
+          then send it in the Authorization header as Bearer {token}.
+        scheme: bearer
 
