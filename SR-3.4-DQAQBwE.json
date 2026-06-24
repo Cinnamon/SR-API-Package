@@ -1,0 +1,874 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "User Management API endpoints (v3.4)",
+        "description": "Admin user read endpoints that expose account lockout state via the `lock_until` field.\n\n## lock_until Field\n\nThe `lock_until` field indicates whether a user account is currently locked due to failed login attempts (see Account Lockout configuration).\n\n| Value | Meaning |\n|-------|--------|\n| `null` | Account is **not locked** |\n| ISO 8601 datetime (future) | Account is locked until this timestamp. Used by `auto_only` and `manual_or_auto` policies. |\n| `9999-12-31T00:00:00Z` | Account is locked **indefinitely** until a System Admin manually unlocks it (`manual_only` policy). |\n\nAn account is considered locked when `lock_until` is not `null` and `lock_until > now()`.\n\n## v3.4 Changes from v3\n\nThese endpoints are identical to their v3 counterparts except that every `UserResponse` item includes `lock_until`. Use these endpoints when the UI or integration needs to display lockout status.\n\n## Required Permissions\n\n- **List / Search / Read user**: Requires `user:read` permission\n- **Search with `all=true`**: Requires System Admin role\n- **Search without `group_id`**: Requires `user:readall` permission, or Group Admin with `allow_group_admin_access_unassigned` starter-pack config enabled",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/api/v3.4/users/": {
+            "get": {
+                "tags": [
+                    "User Management"
+                ],
+                "summary": "List Users",
+                "description": "Retrieve a paginated list of users accessible to the caller.\n\nEach user item includes the `lock_until` field for lockout visibility.\n\n### Pagination\n\n- `skip`: Number of records to skip (default: 0)\n- `limit`: Maximum number of records to return (default: 10)\n\n### Sorting\n\nPrefix a field with `-` for descending order (e.g. `-created_at`).",
+                "operationId": "list_users_api_v3_4_users__get",
+                "security": [
+                    {
+                        "MyHTTPBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "id",
+                                "username",
+                                "first_name",
+                                "last_name",
+                                "display_name",
+                                "last_login",
+                                "created_at",
+                                "updated_at",
+                                "-id",
+                                "-username",
+                                "-first_name",
+                                "-last_name",
+                                "-display_name",
+                                "-last_login",
+                                "-created_at",
+                                "-updated_at"
+                            ],
+                            "default": "id"
+                        },
+                        "description": "Field to sort results by. Prefix with `-` for descending order."
+                    },
+                    {
+                        "name": "skip",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "default": 0
+                        },
+                        "description": "Number of records to skip for pagination"
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "default": 10
+                        },
+                        "description": "Maximum number of records to return"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserList"
+                                },
+                                "example": {
+                                    "total": 3,
+                                    "items": [
+                                        {
+                                            "id": "30fe2fd7d1984dbdbcc03fc4579f9a62",
+                                            "username": "generaluser@me.you",
+                                            "first_name": "General",
+                                            "last_name": "User",
+                                            "display_name": "User General",
+                                            "role": "User",
+                                            "language": "en",
+                                            "last_login": "2025-02-04T06:56:56.213019Z",
+                                            "created_at": "2025-02-04T06:55:29.053961Z",
+                                            "updated_at": "2025-02-04T06:56:56.215059Z",
+                                            "force_password_change": false,
+                                            "lock_until": null,
+                                            "ai_settings": {
+                                                "indexing": {
+                                                    "chunk_size": 1
+                                                },
+                                                "llm": {
+                                                    "language": "auto-detect"
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "id": "946f3674bbc442c28f40cc4ab657c25c",
+                                            "username": "lockeduser@example.com",
+                                            "first_name": "Locked",
+                                            "last_name": "User",
+                                            "display_name": "User Locked",
+                                            "role": "User",
+                                            "language": "en",
+                                            "last_login": "2025-02-04T06:56:56.213019Z",
+                                            "created_at": "2025-02-04T06:55:29.053961Z",
+                                            "updated_at": "2025-06-15T14:22:10Z",
+                                            "force_password_change": false,
+                                            "lock_until": "2025-06-15T14:27:10Z",
+                                            "ai_settings": {
+                                                "indexing": {
+                                                    "chunk_size": 1
+                                                },
+                                                "llm": {
+                                                    "language": "auto-detect"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponseWithCode"
+                                },
+                                "example": {
+                                    "message": "invalid access token",
+                                    "code": "InvalidAccessTokenError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponseWithCode"
+                                },
+                                "examples": {
+                                    "No Permission Error": {
+                                        "summary": "No Permission Error",
+                                        "value": {
+                                            "message": "not enough permission to perform this action",
+                                            "code": "NoPermissionError"
+                                        }
+                                    },
+                                    "Unauthenticated Error": {
+                                        "summary": "Unauthenticated Error",
+                                        "value": {
+                                            "message": "not authenticated",
+                                            "code": "UnauthenticatedError"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponseWithCode"
+                                },
+                                "example": {
+                                    "message": "query.sort: value is not a valid enumeration member",
+                                    "code": "ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v3.4/users/{user_id}/": {
+            "get": {
+                "tags": [
+                    "User Management"
+                ],
+                "summary": "Get User by ID",
+                "description": "Retrieve detailed information for a single user, including group memberships and lockout state.\n\n### lock_until Interpretation\n\n- `null` — user can log in normally\n- Future datetime — user is locked; auto-unlock occurs at this time (if policy allows)\n- `9999-12-31T00:00:00Z` — user is locked indefinitely (`manual_only` policy); requires admin unlock",
+                "operationId": "read_user_by_id_api_v3_4_users__user_id__get",
+                "security": [
+                    {
+                        "MyHTTPBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{32}$"
+                        },
+                        "description": "User ID in 32-character hex format (no dashes)",
+                        "example": "a56bff68b1294b9c9d23bd64764d2a99"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponseWithGroup"
+                                },
+                                "examples": {
+                                    "Unlocked User": {
+                                        "summary": "User is not locked",
+                                        "value": {
+                                            "id": "a56bff68b1294b9c9d23bd64764d2a99",
+                                            "username": "groupadmin@example.com",
+                                            "first_name": "Group",
+                                            "last_name": "Admin",
+                                            "display_name": "Admin Group",
+                                            "role": "Admin",
+                                            "language": "en",
+                                            "last_login": "2025-02-07T09:17:38.334283Z",
+                                            "created_at": "2025-02-07T04:30:10.759370Z",
+                                            "updated_at": "2025-02-10T07:32:52.025864Z",
+                                            "force_password_change": false,
+                                            "lock_until": null,
+                                            "groups": [
+                                                {
+                                                    "id": "78b89043a8e34122a352783079f5c17b",
+                                                    "name": "New general user group"
+                                                }
+                                            ],
+                                            "ai_settings": {
+                                                "indexing": {
+                                                    "chunk_size": 1
+                                                },
+                                                "llm": {
+                                                    "language": "auto-detect"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "Locked User (Manual Only)": {
+                                        "summary": "User locked indefinitely (manual_only policy)",
+                                        "value": {
+                                            "id": "548e51052c3e4159b25a21b2566c474d",
+                                            "username": "lockeduser@example.com",
+                                            "first_name": "Locked",
+                                            "last_name": "User",
+                                            "display_name": "User Locked",
+                                            "role": "User",
+                                            "language": "en",
+                                            "last_login": "2025-02-04T06:56:56.213019Z",
+                                            "created_at": "2025-02-04T06:55:29.053961Z",
+                                            "updated_at": "2025-06-15T14:22:10Z",
+                                            "force_password_change": false,
+                                            "lock_until": "9999-12-31T00:00:00Z",
+                                            "groups": [],
+                                            "ai_settings": {
+                                                "indexing": {
+                                                    "chunk_size": 1
+                                                },
+                                                "llm": {
+                                                    "language": "auto-detect"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponseWithCode"
+                                },
+                                "example": {
+                                    "message": "invalid access token",
+                                    "code": "InvalidAccessTokenError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponseWithCode"
+                                },
+                                "examples": {
+                                    "No Permission Error": {
+                                        "summary": "No Permission Error",
+                                        "value": {
+                                            "message": "not enough permission to perform this action",
+                                            "code": "NoPermissionError"
+                                        }
+                                    },
+                                    "Unauthenticated Error": {
+                                        "summary": "Unauthenticated Error",
+                                        "value": {
+                                            "message": "not authenticated",
+                                            "code": "UnauthenticatedError"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponseWithCode"
+                                },
+                                "example": {
+                                    "message": "User a56bff68b1294b9c9d23bd64764d2a99 not found",
+                                    "code": "UserNotFoundError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponseWithCode"
+                                },
+                                "example": {
+                                    "message": "path.user_id: invalid hex UUID",
+                                    "code": "ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v3.4/users/search/": {
+            "get": {
+                "tags": [
+                    "User Management"
+                ],
+                "summary": "Search Users",
+                "description": "Search users by keyword with optional group filter and optional system-wide scope.\n\nEach result item includes the `lock_until` field.\n\n### Search Modes\n\n| Mode | Who | Behaviour |\n|------|-----|----------|\n| Default (`all=false`, no `group_id`) | SA (`user:readall`) or GA with `allow_group_admin_access_unassigned` | Search across all accessible users |\n| Default (`all=false`, `group_id` set) | Any user with `user:read` | Search within the specified group |\n| `all=true` | System Admin only | Search all users system-wide regardless of group |\n\n### Notes\n\n- `keyword` is required; an empty string is valid.\n- `sort` is required (no default).\n- `size` defaults to 10 when omitted.",
+                "operationId": "search_users_api_v3_4_users_search__get",
+                "security": [
+                    {
+                        "MyHTTPBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "keyword",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Search term matched against username, first name, last name, and display name. Empty string is allowed.",
+                        "example": "general"
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "id",
+                                "username",
+                                "first_name",
+                                "last_name",
+                                "display_name",
+                                "last_login",
+                                "created_at",
+                                "updated_at",
+                                "-id",
+                                "-username",
+                                "-first_name",
+                                "-last_name",
+                                "-display_name",
+                                "-last_login",
+                                "-created_at",
+                                "-updated_at"
+                            ]
+                        },
+                        "description": "Field to sort results by. Prefix with `-` for descending order."
+                    },
+                    {
+                        "name": "skip",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "default": 0
+                        },
+                        "description": "Number of records to skip for pagination"
+                    },
+                    {
+                        "name": "size",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "enum": [
+                                10,
+                                20,
+                                50
+                            ],
+                            "default": 10
+                        },
+                        "description": "Page size"
+                    },
+                    {
+                        "name": "group_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{32}$"
+                        },
+                        "description": "Filter search to a specific group (32-character hex UUID)"
+                    },
+                    {
+                        "name": "all",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "description": "If `true`, search all users system-wide. **System Admin only.** Non-SA callers receive 403."
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserList"
+                                },
+                                "example": {
+                                    "total": 2,
+                                    "items": [
+                                        {
+                                            "id": "548e51052c3e4159b25a21b2566c474d",
+                                            "username": "generaluser3@example.com",
+                                            "first_name": "General",
+                                            "last_name": "User 3",
+                                            "display_name": "User 3 General",
+                                            "role": "User",
+                                            "language": "en",
+                                            "last_login": null,
+                                            "created_at": "2025-02-10T08:03:09.826416Z",
+                                            "updated_at": "2025-02-10T08:03:09.826416Z",
+                                            "force_password_change": false,
+                                            "lock_until": null,
+                                            "ai_settings": {
+                                                "indexing": {
+                                                    "chunk_size": 1
+                                                },
+                                                "llm": {
+                                                    "language": "auto-detect"
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "id": "30fe2fd7d1984dbdbcc03fc4579f9a62",
+                                            "username": "generaluser@me.you",
+                                            "first_name": "General",
+                                            "last_name": "User",
+                                            "display_name": "User General",
+                                            "role": "User",
+                                            "language": "en",
+                                            "last_login": "2025-02-04T06:56:56.213019Z",
+                                            "created_at": "2025-02-04T06:55:29.053961Z",
+                                            "updated_at": "2025-02-04T06:56:56.215059Z",
+                                            "force_password_change": false,
+                                            "lock_until": "2025-06-15T14:27:10Z",
+                                            "ai_settings": {
+                                                "indexing": {
+                                                    "chunk_size": 1
+                                                },
+                                                "llm": {
+                                                    "language": "auto-detect"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponseWithCode"
+                                },
+                                "example": {
+                                    "message": "invalid access token",
+                                    "code": "InvalidAccessTokenError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponseWithCode"
+                                },
+                                "examples": {
+                                    "No Permission Error": {
+                                        "summary": "Caller lacks permission for this search scope",
+                                        "value": {
+                                            "message": "not enough permission to perform this action",
+                                            "code": "NoPermissionError"
+                                        }
+                                    },
+                                    "Search All Not Allowed": {
+                                        "summary": "Non-SA user passed all=true",
+                                        "value": {
+                                            "message": "only system administrators can search all users",
+                                            "code": "UserSearchAllNotAllowedError"
+                                        }
+                                    },
+                                    "Unauthenticated Error": {
+                                        "summary": "Unauthenticated Error",
+                                        "value": {
+                                            "message": "not authenticated",
+                                            "code": "UnauthenticatedError"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponseWithCode"
+                                },
+                                "example": {
+                                    "message": "query.keyword: field required",
+                                    "code": "ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "UserResponse": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "username",
+                    "first_name",
+                    "last_name",
+                    "display_name",
+                    "role",
+                    "language",
+                    "created_at",
+                    "updated_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{32}$",
+                        "title": "Id",
+                        "description": "User ID in 32-character hex format"
+                    },
+                    "username": {
+                        "type": "string",
+                        "format": "email",
+                        "title": "Username",
+                        "description": "User's email address"
+                    },
+                    "first_name": {
+                        "type": "string",
+                        "title": "First Name"
+                    },
+                    "last_name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Last Name"
+                    },
+                    "display_name": {
+                        "type": "string",
+                        "title": "Display Name"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "User",
+                            "Admin",
+                            "SystemAdmin"
+                        ],
+                        "title": "Role"
+                    },
+                    "language": {
+                        "type": "string",
+                        "enum": [
+                            "auto-detect",
+                            "en",
+                            "ja"
+                        ],
+                        "title": "Language"
+                    },
+                    "last_login": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Last Login"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Updated At"
+                    },
+                    "force_password_change": {
+                        "type": "boolean",
+                        "title": "Force Password Change",
+                        "description": "Whether user is required to change password on next login",
+                        "default": false
+                    },
+                    "lock_until": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Lock Until",
+                        "description": "Account lockout expiry timestamp.\n\n• `null` — account is not locked\n• Future datetime — account is locked until this time (auto-unlock policies)\n• `9999-12-31T00:00:00Z` — account is locked indefinitely (`manual_only` policy)",
+                        "default": null
+                    },
+                    "ai_settings": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/UserAISettingsResponse"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "AI Settings",
+                        "description": "User-specific AI configuration settings"
+                    }
+                },
+                "title": "UserResponse",
+                "description": "User information response with lockout state (v3.4)"
+            },
+            "UserResponseWithGroup": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/UserResponse"
+                    },
+                    {
+                        "type": "object",
+                        "required": [
+                            "groups"
+                        ],
+                        "properties": {
+                            "groups": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/GroupResponse"
+                                },
+                                "title": "Groups",
+                                "description": "Groups the user belongs to"
+                            }
+                        }
+                    }
+                ],
+                "title": "UserResponseWithGroup",
+                "description": "User detail response including group memberships and lockout state (v3.4)"
+            },
+            "UserList": {
+                "type": "object",
+                "required": [
+                    "total",
+                    "items"
+                ],
+                "properties": {
+                    "total": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "title": "Total",
+                        "description": "Total number of matching users"
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/UserResponse"
+                        },
+                        "title": "Items"
+                    }
+                },
+                "title": "UserList",
+                "description": "Paginated list of users with lockout state (v3.4)"
+            },
+            "GroupResponse": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "name"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{32}$",
+                        "title": "Id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    }
+                },
+                "title": "GroupResponse"
+            },
+            "UserAISettingsIndexing": {
+                "type": "object",
+                "required": [
+                    "chunk_size"
+                ],
+                "properties": {
+                    "chunk_size": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "title": "Chunk Size",
+                        "description": "Size of text chunks for indexing"
+                    }
+                },
+                "title": "UserAISettingsIndexing"
+            },
+            "UserAISettingsLLM": {
+                "type": "object",
+                "required": [
+                    "language"
+                ],
+                "properties": {
+                    "language": {
+                        "type": "string",
+                        "enum": [
+                            "auto-detect",
+                            "en",
+                            "ja"
+                        ],
+                        "title": "Language",
+                        "description": "Language preference for LLM responses",
+                        "default": "auto-detect"
+                    }
+                },
+                "title": "UserAISettingsLLM"
+            },
+            "UserAISettingsResponse": {
+                "type": "object",
+                "properties": {
+                    "indexing": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/UserAISettingsIndexing"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Indexing"
+                    },
+                    "llm": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/UserAISettingsLLM"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "LLM",
+                        "default": {
+                            "language": "auto-detect"
+                        }
+                    }
+                },
+                "title": "UserAISettingsResponse"
+            },
+            "ErrorResponseWithCode": {
+                "type": "object",
+                "required": [
+                    "message"
+                ],
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "title": "Message",
+                        "description": "Error message"
+                    },
+                    "code": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Code",
+                        "description": "Error code identifier"
+                    }
+                },
+                "title": "ErrorResponseWithCode"
+            }
+        },
+        "securitySchemes": {
+            "MyHTTPBearer": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "JWT Bearer token authentication"
+            }
+        }
+    }
+}
