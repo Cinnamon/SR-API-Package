@@ -355,103 +355,6 @@
                   $ref: '#/components/schemas/ErrorResponseWithCode'
             description: Unprocessable Entity
 
-    # --- SR 3.4: Web search feature flag config ---
-    /api/v3.4/config/web-search-enabled/:
-      get:
-        tags:
-          - Config endpoints
-        summary: Get Web Search Enabled Config
-        description: Get web search feature flag configuration.
-        operationId: >-
-          get_web_search_enabled_config_api_v3_4_config_web_search_enabled__get
-        security:
-          - MyHTTPBearer: []
-        responses:
-          '200':
-            description: Successful Response
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/WebSearchEnabledResponse'
-          '401':
-            content:
-              application/json:
-                example:
-                  message: invalid access token
-                  code: InvalidAccessTokenError
-                schema:
-                  $ref: '#/components/schemas/ErrorResponseWithCode'
-            description: Unauthorized
-          '403':
-            content:
-              application/json:
-                example:
-                  message: not authenticated
-                  code: UnauthenticatedError
-                schema:
-                  $ref: '#/components/schemas/ErrorResponseWithCode'
-            description: Forbidden
-          '422':
-            content:
-              application/json:
-                example:
-                  message: 'body.field1.field2: field required, ...'
-                  code: ValidationError
-                schema:
-                  $ref: '#/components/schemas/ErrorResponseWithCode'
-            description: Unprocessable Entity
-      put:
-        tags:
-          - Config endpoints
-        summary: Update Web Search Enabled Config
-        description: Enable or disable web search feature.
-        operationId: >-
-          update_web_search_enabled_config_api_v3_4_config_web_search_enabled__put
-        security:
-          - MyHTTPBearer:
-              - 'config:create'
-              - 'config:update'
-        requestBody:
-          required: true
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WebSearchEnabledUpdate'
-        responses:
-          '200':
-            description: Successful Response
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/WebSearchEnabledResponse'
-          '401':
-            content:
-              application/json:
-                example:
-                  message: invalid access token
-                  code: InvalidAccessTokenError
-                schema:
-                  $ref: '#/components/schemas/ErrorResponseWithCode'
-            description: Unauthorized
-          '403':
-            content:
-              application/json:
-                example:
-                  message: not authenticated
-                  code: UnauthenticatedError
-                schema:
-                  $ref: '#/components/schemas/ErrorResponseWithCode'
-            description: Forbidden
-          '422':
-            content:
-              application/json:
-                example:
-                  message: 'body.field1.field2: field required, ...'
-                  code: ValidationError
-                schema:
-                  $ref: '#/components/schemas/ErrorResponseWithCode'
-            description: Unprocessable Entity
-
     /api/v3/ui/config/web-search-policy/:
       get:
         tags:
@@ -635,26 +538,6 @@
 
   components:
     schemas:
-      WebSearchEnabledResponse:
-        type: object
-        required:
-          - web_search_enabled
-        properties:
-          web_search_enabled:
-            type: boolean
-            title: Web Search Enabled
-            description: If true, web search feature is available
-        title: WebSearchEnabledResponse
-      WebSearchEnabledUpdate:
-        type: object
-        required:
-          - web_search_enabled
-        properties:
-          web_search_enabled:
-            type: boolean
-            title: Web Search Enabled
-            description: Enable or disable web search feature
-        title: WebSearchEnabledUpdate
       WebSearchConfigResponse:
         properties:
           system_web_search_allowed:
