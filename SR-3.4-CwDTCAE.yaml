@@ -355,13 +355,13 @@
                   $ref: '#/components/schemas/ErrorResponseWithCode'
             description: Unprocessable Entity
 
-    /api/v3/ui/config/web-search-policy/:
+    /api/v3.4/config/web-search-policy/:
       get:
         tags:
           - Config endpoints
         summary: Get Web Search Config
         description: Get global web search configuration.
-        operationId: get_web_search_config_api_v3_ui_config_web_search_policy__get
+        operationId: get_web_search_config_api_v3_4_config_web_search_policy__get
         responses:
           "200":
             description: Successful Response
@@ -403,7 +403,7 @@
           - Config endpoints
         summary: Update Web Search Config
         description: Enable or disable global web search.
-        operationId: update_web_search_config_api_v3_ui_config_web_search_policy__put
+        operationId: update_web_search_config_api_v3_4_config_web_search_policy__put
         requestBody:
           content:
             application/json:
