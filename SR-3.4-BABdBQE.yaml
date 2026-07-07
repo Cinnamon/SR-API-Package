@@ -1420,6 +1420,7 @@ components:
           default: []
         collection_ids:
           type: array
+          nullable: true
           items:
             anyOf:
               - type: string
