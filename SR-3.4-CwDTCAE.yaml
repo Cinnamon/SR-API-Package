@@ -43,7 +43,7 @@
       ## SR 3.4 (this spec contains only 3.4 endpoints)
 
       - **FR1** Assistant discovery: `GET /api/v3.4/assistants/`, `GET /api/v3.4/assistants/{assistant_id}/` (list and get by ID with collections; each collection contains reference_ids).
-      - **FR2** Assistant-bound collections: In `POST /api/v3.4/chats/{chat_id}/messages/`, when `collection_ids` is omitted or empty, the server SHALL use the collections assigned to the chat's assistant_id (assistant-bound collections). When provided, server uses the given collection_ids. SR 3.2 (`POST /api/v3.2/chats/{chat_id}/messages/`) requires explicit collection_ids. Same request/response schema for both versions. See SR 3.2 spec for full message endpoint details.
+      - **FR2** Assistant-bound collections: In `POST /api/v3.4/chats/{chat_id}/messages/`, when `collection_ids` is omitted or null, the server SHALL use the collections assigned to the chat's assistant_id (assistant-bound collections). When provided, server uses the given collection_ids. SR 3.2 (`POST /api/v3.2/chats/{chat_id}/messages/`) requires explicit collection_ids. Same request/response schema for both versions. See SR 3.2 spec for full message endpoint details.
       - **FR3** Image retrieval: `POST /api/v3.4/images/` (request body contains S3 path), `POST /api/v3.4/images/download`, `GET /api/v3.4/references/{reference_id}/images` (single image, zip of multiple, zip of all images for a reference); caching and authorization required.
       - **FR4** Reference chunks: `GET /api/v3.4/references/{reference_id}/chunks `; caching and authorization required.
     version: 3.4.0
@@ -62,7 +62,7 @@
           - **SR 3.2** (`/api/v3.2/...`): Client MUST pass `collection_ids` in the
             request body. Server uses only the collections explicitly provided.
           - **SR 3.4** (`/api/v3.4/...`): When `collection_ids` is omitted or
-            empty, the server SHALL use the collections assigned to the chat's
+            null, the server SHALL use the collections assigned to the chat's
             assistant (assistant-bound collections). When `collection_ids` is
             provided, server uses those collections. Behavior MUST be deterministic.
 
